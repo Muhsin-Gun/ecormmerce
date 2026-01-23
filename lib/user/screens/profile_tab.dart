@@ -1,0 +1,202 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../core/constants/constants.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
+import '../../shared/providers/theme_provider.dart';
+import '../../shared/widgets/section_header.dart';
+import 'order_history_screen.dart';
+
+class ProfileTab extends StatelessWidget {
+  const ProfileTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final user = context.watch<AuthProvider>().userModel;
+    
+    if (user == null) return const SizedBox();
+
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 200,
+            pinned: true,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppColors.primaryIndigo, AppColors.electricPurple],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Colors.white,
+                        backgroundImage: user.profileImageUrl != null
+                            ? NetworkImage(user.profileImageUrl!)
+                            : null,
+                        child: user.profileImageUrl == null
+                            ? Text(
+                                (user.name.isNotEmpty ? user.name[0] : 'U').toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primaryIndigo,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        user.name,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        user.email,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          SliverList(
+            delegate: SliverChildListDelegate([
+              const SizedBox(height: AppTheme.spacingM),
+              
+              const SectionHeader(title: 'My Account'),
+              _buildSettingsTile(
+                context,
+                icon: Icons.person_outline,
+                title: 'Personal Details',
+                subtitle: 'Edit name, phone, address',
+                onTap: () {
+                  // Navigate to edit profile
+                },
+              ),
+               _buildSettingsTile(
+                context,
+                icon: Icons.shopping_bag_outlined,
+                title: 'My Orders',
+                subtitle: 'Track current and past orders',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const OrderHistoryScreen()),
+                  );
+                },
+              ),
+               _buildSettingsTile(
+                context,
+                icon: Icons.favorite_border,
+                title: 'Wishlist',
+                subtitle: 'Your saved products',
+                onTap: () {
+                  // Navigate to wishlist
+                },
+              ),
+               _buildSettingsTile(
+                context,
+                icon: Icons.location_on_outlined,
+                title: 'Addresses',
+                subtitle: 'Manage delivery addresses',
+                onTap: () {
+                  // Navigate to addresses
+                },
+              ),
+              
+              const SizedBox(height: AppTheme.spacingL),
+              const SectionHeader(title: 'App Settings'),
+              
+              Consumer<ThemeProvider>(
+                builder: (context, themeProvider, _) {
+                  return SwitchListTile(
+                    secondary: Icon(
+                      themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                      color: AppColors.electricPurple,
+                    ),
+                    title: const Text('Dark Mode'),
+                    value: themeProvider.isDarkMode,
+                    onChanged: (value) => themeProvider.toggleTheme(),
+                  );
+                },
+              ),
+              
+              _buildSettingsTile(
+                context,
+                icon: Icons.notifications_none,
+                title: 'Notifications',
+                onTap: () {
+                   // Toggle notifications
+                },
+                trailing: Switch(
+                  value: true, 
+                  onChanged: (val) {},
+                  activeColor: AppColors.electricPurple,
+                ),
+              ),
+
+              const SizedBox(height: AppTheme.spacingL),
+              
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    context.read<AuthProvider>().logout();
+                  },
+                  icon: const Icon(Icons.logout, color: AppColors.error),
+                  label: const Text('Logout', style: TextStyle(color: AppColors.error)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.error),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 50),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required VoidCallback onTap,
+    Widget? trailing,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.electricPurple.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: AppColors.electricPurple),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: subtitle != null ? Text(subtitle) : null,
+      trailing: trailing ?? const Icon(Icons.arrow_forward_ios, size: 16),
+      onTap: onTap,
+    );
+  }
+}
