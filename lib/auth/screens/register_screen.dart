@@ -8,6 +8,7 @@ import '../providers/auth_provider.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/role_selector.dart';
+import 'email_verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -83,31 +84,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
     
     if (success && mounted) {
-      if (_selectedRole == AppConstants.roleClient) {
-        // Auto-login or navigate to email verification
-        Navigator.pop(context); // Go back to login or dashboard
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account created successfully! Please verify your email.'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      } else {
-        // Pending approval
+      // Navigate to email verification screen for all users
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const EmailVerificationScreen()),
+      );
+      
+      if (_selectedRole != AppConstants.roleClient) {
+        // Show dialog about pending approval if they chose employee/admin
         showDialog(
           context: context,
-          barrierDismissible: false,
           builder: (context) => AlertDialog(
-            title: const Text('Registration Successful'),
+            title: const Text('Account Created'),
             content: const Text(
-              'Your account has been created and is pending approval. You will receive an email once your account is active.',
+              'Your account is created and pending approval. Please verify your email first.',
             ),
             actions: [
               TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close dialog
-                  Navigator.pop(context); // Go back to login
-                },
+                onPressed: () => Navigator.pop(context),
                 child: const Text('OK'),
               ),
             ],

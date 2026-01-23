@@ -94,9 +94,8 @@ class ConversationListScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => ChatScreen(
-                        conversationId: conversation.id,
-                        otherUserId: otherUserId,
-                        otherUserName: otherUserName,
+                        chatId: conversation.id,
+                        receiverName: otherUserName,
                       ),
                     ),
                   );

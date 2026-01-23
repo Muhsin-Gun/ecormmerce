@@ -5,8 +5,9 @@ import 'package:provider/provider.dart';
 // Firebase Options
 import 'firebase_options.dart';
 
-// Core
+// Core & Services
 import 'core/theme/app_theme.dart';
+import 'core/services/notification_service.dart';
 
 // Providers
 import 'shared/providers/theme_provider.dart';
@@ -16,6 +17,7 @@ import 'shared/providers/cart_provider.dart';
 import 'shared/providers/order_provider.dart';
 import 'shared/providers/review_provider.dart';
 import 'shared/providers/message_provider.dart';
+import 'shared/providers/wishlist_provider.dart';
 import 'auth/widgets/auth_wrapper.dart';
 
 void main() async {
@@ -25,11 +27,17 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Initialize Notifications
+  await NotificationService.init();
   
   runApp(const ProMarketApp());
 }
 
 class ProMarketApp extends StatelessWidget {
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   const ProMarketApp({super.key});
 
   @override
@@ -76,12 +84,19 @@ class ProMarketApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => MessageProvider(),
         ),
+
+        // Wishlist Provider
+        ChangeNotifierProvider(
+          create: (_) => WishlistProvider()..loadWishlist(),
+        ),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
           return MaterialApp(
             title: 'ProMarket',
             debugShowCheckedModeBanner: false,
+            scaffoldMessengerKey: ProMarketApp.scaffoldMessengerKey,
+            navigatorKey: ProMarketApp.navigatorKey,
             
             // Theme
             theme: AppTheme.lightTheme,

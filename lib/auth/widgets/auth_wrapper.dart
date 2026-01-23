@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../admin/screens/admin_dashboard_screen.dart';
 import 'package:provider/provider.dart';
-import '../../user/screens/user_dashboard_screen.dart';
+import '../../user/screens/user_main_screen.dart';
+import '../../employee/screens/employee_dashboard_screen.dart';
 import '../providers/auth_provider.dart';
 import '../screens/email_verification_screen.dart';
 import '../screens/login_screen.dart';
@@ -76,10 +77,10 @@ class AuthWrapper extends StatelessWidget {
         if (user.isAdmin) {
           return const AdminDashboardScreen();
         } else if (user.isEmployee) {
-          // return const EmployeeDashboardScreen();
+          return const EmployeeDashboardScreen();
         }
         
-        return const UserDashboardScreen();
+        return const UserMainScreen();
       },
     );
   }
@@ -130,7 +131,7 @@ class _StatusScreen extends StatelessWidget {
                   const SizedBox(height: 32),
                   OutlinedButton.icon(
                     onPressed: () {
-                      context.read<AuthProvider>().logout();
+                      context.read<AuthProvider>().signOut();
                     },
                     icon: const Icon(Icons.logout),
                     label: const Text('Logout'),

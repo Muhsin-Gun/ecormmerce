@@ -1,77 +1,118 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import '../../auth/providers/auth_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
-import '../../shared/models/order_model.dart';
-import '../../shared/providers/order_provider.dart';
+import '../../core/utils/invoice_generator.dart';
+import '../../shared/services/firebase_service.dart';
 
-class OrderHistoryScreen extends StatefulWidget {
+class OrderHistoryScreen extends StatelessWidget {
   const OrderHistoryScreen({super.key});
 
   @override
-  State<OrderHistoryScreen> createState() => _OrderHistoryScreenState();
-}
-
-class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = context.read<AuthProvider>().firebaseUser;
-      if (user != null) {
-        context.read<OrderProvider>().loadUserOrders(user.uid);
-      }
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final userId = FirebaseService.instance.currentUserId;
+
+    if (userId == null) return const Scaffold(body: Center(child: Text('Please Login')));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Orders'),
-        centerTitle: true,
-      ),
-      body: Consumer<OrderProvider>(
-        builder: (context, orderProvider, child) {
-          if (orderProvider.isLoading) {
+      appBar: AppBar(title: const Text('My Orders')),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseService.instance.getCollectionStream(
+          'orders',
+          queryBuilder: (q) => q.where('userId', isEqualTo: userId).orderBy('createdAt', descending: true),
+        ),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (orderProvider.orders.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                   Icon(
-                    Icons.shopping_bag_outlined, 
-                    size: 80, 
-                    color: isDark ? AppColors.gray600 : AppColors.gray300
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No orders yet',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: isDark ? AppColors.gray500 : AppColors.gray500,
-                    ),
-                  ),
-                ],
-              ),
-            );
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text('No orders found'));
           }
 
-          return ListView.separated(
+          final orders = snapshot.data!.docs;
+
+          return ListView.builder(
             padding: const EdgeInsets.all(AppTheme.spacingM),
-            itemCount: orderProvider.orders.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            itemCount: orders.length,
             itemBuilder: (context, index) {
-              final order = orderProvider.orders[index];
-              return _buildOrderCard(context, order, theme, isDark);
+              final order = orders[index].data() as Map<String, dynamic>;
+              final status = order['status'] ?? 'pending';
+              final total = (order['totalAmount'] ?? 0.0).toDouble();
+              final date = DateTime.tryParse(order['createdAt'] ?? '') ?? DateTime.now();
+              final items = (order['items'] as List?) ?? [];
+              final orderId = orders[index].id;
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: AppTheme.spacingM),
+                child: ExpansionTile(
+                  title: Row(
+                    children: [
+                       Text('Order #${orderId.substring(0, 6).toUpperCase()}'),
+                       const Spacer(),
+                       Text(Formatters.formatCurrency(total), style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryIndigo)),
+                    ],
+                  ),
+                  subtitle: Row(
+                    children: [
+                      Text(Formatters.formatDate(date)),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(status).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          status.toUpperCase(),
+                          style: TextStyle(fontSize: 10, color: _getStatusColor(status), fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ...items.map<Widget>((item) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Row(
+                                children: [
+                                  Text('${item['quantity']}x ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  Expanded(child: Text(item['productName'] ?? 'Product')),
+                                  Text(Formatters.formatCurrency((item['price'] ?? 0.0).toDouble())),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          const Divider(),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () async {
+                                final pdfFile = await InvoiceGenerator.generateInvoice({...order, 'id': orderId});
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Invoice saved to ${pdfFile.path}'),
+                                    backgroundColor: AppColors.primaryIndigo,
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.download_for_offline),
+                              label: const Text('Download Invoice'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
             },
           );
         },
@@ -79,98 +120,18 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     );
   }
 
-  Widget _buildOrderCard(BuildContext context, OrderModel order, ThemeData theme, bool isDark) {
-    // Determine status color
-    Color statusColor = AppColors.primaryIndigo;
-    // Basic status mapping logic
-    if (order.status == 'Pending') statusColor = AppColors.warning;
-    else if (order.status == 'Delivered') statusColor = AppColors.success;
-    else if (order.status == 'Cancelled') statusColor = AppColors.error;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCard : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Order #${order.orderId.substring(0, 8)}',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  order.status,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            DateFormat('MMM d, y • HH:mm').format(order.createdAt),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: AppColors.gray500,
-            ),
-          ),
-          const Divider(height: 24),
-          Row(
-            children: [
-              Text(
-                '${order.items.length} items',
-                style: theme.textTheme.bodyMedium,
-              ),
-              const Spacer(),
-              Text(
-                'Total: ',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.gray500,
-                ),
-              ),
-              Text(
-                Formatters.formatCurrency(order.total),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryIndigo,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () {
-                // Navigate to Order Details
-              },
-              child: const Text('View Details'),
-            ),
-          ),
-        ],
-      ),
-    );
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'delivered':
+        return AppColors.success;
+      case 'cancelled':
+        return AppColors.error;
+      case 'processing':
+      case 'shipped':
+        return AppColors.info;
+      default:
+        return AppColors.warning;
+    }
   }
 }

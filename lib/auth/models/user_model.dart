@@ -185,6 +185,9 @@ class UserModel extends Equatable {
         addresses,
         preferences,
       ];
+  // UI Aliases
+  String get uid => userId;
+  String get phoneNumber => phone ?? '';
 }
 
 /// Address data for user

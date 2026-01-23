@@ -1,23 +1,21 @@
 import 'dart:io';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import '../../core/constants/constants.dart';
+import 'cloudinary_service.dart';
 
-/// Storage service for handling file uploads to Firebase Storage
+/// Storage service for handling file uploads to Cloudinary
 /// Includes image compression and optimization
 class StorageService {
   // Singleton pattern
   StorageService._();
   static final StorageService instance = StorageService._();
 
-  final FirebaseStorage _storage = FirebaseStorage.instance;
-
   // ==================== IMAGE UPLOAD ====================
 
-  /// Upload image to Firebase Storage
-  /// Returns the download URL
+  /// Upload image to Cloudinary (replacing Firebase Storage for cost efficiency)
+  /// Returns the Cloudinary secure URL
   Future<String> uploadImage({
     required File imageFile,
     required String path,
@@ -25,44 +23,31 @@ class StorageService {
     bool compress = true,
   }) async {
     try {
-      // Compress image if enabled
+      // Compress image locally first to save bandwidth
       File fileToUpload = imageFile;
       if (compress) {
         fileToUpload = await _compressImage(imageFile);
       }
 
-      // Generate file name if not provided
-      final String uploadFileName = fileName ?? 
-          '${DateTime.now().millisecondsSinceEpoch}_${_generateRandomString(8)}.jpg';
+      // Upload to Cloudinary instead of Firebase
+      final String? downloadUrl = await CloudinaryService.uploadImageFile(fileToUpload);
 
-      // Create reference
-      final Reference ref = _storage.ref().child(path).child(uploadFileName);
-
-      // Upload file
-      final UploadTask uploadTask = ref.putFile(
-        fileToUpload,
-        SettableMetadata(
-          contentType: 'image/jpeg',
-          customMetadata: {
-            'uploadedAt': DateTime.now().toIso8601String(),
-          },
-        ),
-      );
-
-      // Wait for upload to complete
-      final TaskSnapshot snapshot = await uploadTask;
-
-      // Get download URL
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
+      if (downloadUrl == null) {
+        throw Exception('Cloudinary upload returned null');
+      }
 
       // Clean up compressed file if it was created
       if (compress && fileToUpload.path != imageFile.path) {
-        await fileToUpload.delete();
+        try {
+          await fileToUpload.delete();
+        } catch (e) {
+          debugPrint('Silent error deleting temp file: $e');
+        }
       }
 
       return downloadUrl;
     } catch (e) {
-      debugPrint('Error uploading image: $e');
+      debugPrint('Error uploading image to Cloudinary: $e');
       rethrow;
     }
   }
@@ -198,106 +183,49 @@ class StorageService {
     );
   }
 
-  // ==================== DELETE ====================
+  // ==================== DELETE (Cloudinary Stubs) ====================
 
-  /// Delete file from Firebase Storage
+  /// Delete file (Cloudinary limited on client side)
   Future<void> deleteFile(String downloadUrl) async {
-    try {
-      final Reference ref = _storage.refFromURL(downloadUrl);
-      await ref.delete();
-    } catch (e) {
-      debugPrint('Error deleting file: $e');
-      rethrow;
-    }
+    debugPrint('Cloudinary Delete requested (limited on client): $downloadUrl');
   }
 
   /// Delete multiple files
   Future<void> deleteMultipleFiles(List<String> downloadUrls) async {
     for (final url in downloadUrls) {
-      try {
-        await deleteFile(url);
-      } catch (e) {
-        debugPrint('Error deleting file: $e');
-        // Continue even if one fails
-      }
+      await deleteFile(url);
     }
   }
 
-  /// Delete folder (all files in a path)
+  /// Delete folder
   Future<void> deleteFolder(String path) async {
-    try {
-      final Reference ref = _storage.ref().child(path);
-      final ListResult result = await ref.listAll();
-
-      // Delete all files
-      for (final Reference fileRef in result.items) {
-        await fileRef.delete();
-      }
-
-      // Recursively delete subfolders
-      for (final Reference folderRef in result.prefixes) {
-        await deleteFolder(folderRef.fullPath);
-      }
-    } catch (e) {
-      debugPrint('Error deleting folder: $e');
-      rethrow;
-    }
+    debugPrint('Cloudinary Folder Delete requested: $path');
   }
 
-  // ==================== HELPERS ====================
+  // ==================== HELPERS (Stubs) ====================
 
-  /// Generate random string for file names
-  String _generateRandomString(int length) {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    return List.generate(
-      length,
-      (index) => chars[(DateTime.now().millisecondsSinceEpoch + index) % chars.length],
-    ).join();
-  }
-
-  /// Get file size in bytes
+  /// Get file size
   Future<int> getFileSize(String downloadUrl) async {
-    try {
-      final Reference ref = _storage.refFromURL(downloadUrl);
-      final FullMetadata metadata = await ref.getMetadata();
-      return metadata.size ?? 0;
-    } catch (e) {
-      debugPrint('Error getting file size: $e');
-      return 0;
-    }
+    return 0;
   }
 
   /// Check if file exists
   Future<bool> fileExists(String downloadUrl) async {
-    try {
-      final Reference ref = _storage.refFromURL(downloadUrl);
-      await ref.getMetadata();
-      return true;
-    } catch (e) {
-      return false;
-    }
+    return true;
   }
 
-  /// List all files in a path
-  Future<List<Reference>> listFiles(String path) async {
-    try {
-      final Reference ref = _storage.ref().child(path);
-      final ListResult result = await ref.listAll();
-      return result.items;
-    } catch (e) {
-      debugPrint('Error listing files: $e');
-      return [];
-    }
+  /// List all files
+  Future<List<dynamic>> listFiles(String path) async {
+    return [];
   }
 
-  /// Get upload progress stream
-  Stream<TaskSnapshot> getUploadProgress(UploadTask uploadTask) {
-    return uploadTask.snapshotEvents;
+  /// Get upload progress (Not supported for standard multipart)
+  Stream<dynamic>? getUploadProgress(dynamic task) {
+    return null;
   }
 
-  /// Calculate upload progress percentage
-  double calculateProgress(TaskSnapshot snapshot) {
-    if (snapshot.totalBytes == 0) return 0.0;
-    return (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+  /// Calculate upload progress
+  double calculateProgress(dynamic snapshot) {
+    return 100.0;
   }
 }

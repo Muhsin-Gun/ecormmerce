@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isEmployee() {
+      return isAuthenticated() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'employee' || isAdmin());
+    }
+
+    // Products: Everyone can read, only admin can write
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+      allow update: if isEmployee(); // Employees can update stock
+    }
+
+    // Users: Users can read/write their own data, admins see all
+    match /users/{userId} {
+      allow read: if request.auth.uid == userId || isAdmin();
+      allow write: if request.auth.uid == userId || isAdmin();
+    }
+
+    // Orders: Users read/write their own, employees/admins see all
+    match /orders/{orderId} {
+      allow read: if request.auth.uid == resource.data.userId || isEmployee();
+      allow create: if isAuthenticated();
+      allow update: if isEmployee();
+    }
+
+    // Chats: Participants only, admins/employees see all
+    match /chats/{chatId} {
+      allow read, write: if isAuthenticated() && (request.auth.uid in resource.data.participants || isEmployee());
+      
+      match /messages/{messageId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+  }
+}

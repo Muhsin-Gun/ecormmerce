@@ -113,9 +113,19 @@ class AuthProvider extends ChangeNotifier {
         throw Exception('Failed to create user');
       }
 
-      // Determine role status based on role
+      // Check if this is the first user
+      final userCountSnapshot = await _firebaseService.getCollection(AppConstants.usersCollection);
+      bool isFirstUser = userCountSnapshot.docs.isEmpty;
+
+      // Determine role status based on role and if it's the first user
+      String finalRole = role;
       String roleStatus;
-      if (role == AppConstants.roleClient) {
+      
+      if (isFirstUser) {
+        // First user is ALWAYS an approved admin
+        finalRole = AppConstants.roleAdmin;
+        roleStatus = AppConstants.roleStatusApproved;
+      } else if (role == AppConstants.roleClient) {
         // Clients are auto-approved
         roleStatus = AppConstants.roleStatusApproved;
       } else {
@@ -129,7 +139,7 @@ class AuthProvider extends ChangeNotifier {
         email: email,
         name: name,
         phone: phone,
-        role: role,
+        role: finalRole,
         roleStatus: roleStatus,
         emailVerified: false,
         createdAt: DateTime.now(),
@@ -233,6 +243,9 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(false);
     notifyListeners();
   }
+
+  /// Sign out (Alias for logout used in UI)
+  Future<void> signOut() async => await logout();
 
   // ==================== PASSWORD RESET ====================
 

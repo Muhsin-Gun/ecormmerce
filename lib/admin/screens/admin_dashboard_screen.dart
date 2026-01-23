@@ -1,60 +1,280 @@
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-import '../../auth/providers/auth_provider.dart';
-import 'package:provider/provider.dart';
+import '../../shared/widgets/glass_container.dart';
+import '../../shared/widgets/section_header.dart';
+import '../../shared/services/data_seeder.dart';
+import 'admin_products_tab.dart'; // To be implemented/updated
+import 'user_management_screen.dart'; // To be implemented
+import '../../shared/screens/order_management_screen.dart'; // To be implemented
 
-import 'admin_orders_tab.dart';
-import 'admin_products_tab.dart'; 
-// import 'admin_users_tab.dart';
-// import 'admin_home_tab.dart';
-
-class AdminDashboardScreen extends StatefulWidget {
+class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
 
   @override
-  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
-}
-
-class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  int _currentIndex = 0;
-
-  final List<Widget> _tabs = [
-    const Center(child: Text("Home Dashboard Placeholder")), // AdminHomeTab(),
-    const AdminProductsTab(),
-    const AdminOrdersTab(), 
-    const Center(child: Text("Users Management Placeholder")), // AdminUsersTab(),
-  ];
-
-  @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Console'),
-        backgroundColor: AppColors.primaryIndigo,
-        foregroundColor: Colors.white,
+        title: const Text('Admin Dashboard'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => context.read<AuthProvider>().logout(),
-          ),
+          IconButton(icon: const Icon(Icons.notifications), onPressed: () {}),
         ],
       ),
-      body: _tabs[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryIndigo,
-        unselectedItemColor: isDark ? Colors.grey : Colors.grey[600],
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.inventory_2), label: 'Products'),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'Orders'),
-          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Users'),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppTheme.spacingM),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. Key Metrics Cards
+            SizedBox(
+              height: 140,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _buildMetricCard(
+                    context,
+                    title: 'Total Revenue',
+                    value: 'KES 1.2M', // Placeholder - normally stream/future
+                    trend: '+12%',
+                    icon: Icons.attach_money,
+                    color: AppColors.success,
+                  ),
+                  const SizedBox(width: AppTheme.spacingM),
+                  _buildMetricCard(
+                    context,
+                    title: 'Total Orders',
+                    value: '1,245',
+                    trend: '+5%',
+                    icon: Icons.shopping_bag,
+                    color: AppColors.electricPurple,
+                  ),
+                  const SizedBox(width: AppTheme.spacingM),
+                  _buildMetricCard(
+                    context,
+                    title: 'Active Users',
+                    value: '8,502',
+                    trend: '+8%',
+                    icon: Icons.people,
+                    color: AppColors.neonBlue,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingL),
+
+            // 2. Revenue Chart (Placeholder for now)
+            const SectionHeader(title: 'Revenue Analytics'),
+            Container(
+              height: 250,
+              padding: const EdgeInsets.all(AppTheme.spacingM),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkCard : Colors.white,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              ),
+              child: BarChart(
+                BarChartData(
+                  borderData: FlBorderData(show: false),
+                  gridData: FlGridData(show: false),
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          const titles = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                          return Text(
+                            titles[value.toInt() % titles.length],
+                            style: const TextStyle(fontSize: 10),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  barGroups: List.generate(7, (index) {
+                    return BarChartGroupData(
+                      x: index,
+                      barRods: [
+                        BarChartRodData(
+                          toY: (index + 1) * 10.0 + (index % 2) * 5,
+                          color: AppColors.electricPurple,
+                          width: 16,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ],
+                    );
+                  }),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingL),
+
+            // 3. Quick Actions Grid
+            const SectionHeader(title: 'Management'),
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: AppTheme.spacingM,
+              crossAxisSpacing: AppTheme.spacingM,
+              childAspectRatio: 1.5,
+              children: [
+                _buildActionCard(
+                  context,
+                  title: 'Products',
+                  icon: Icons.inventory_2,
+                  color: Colors.orange,
+                  onTap: () {
+                    // Navigate to Products Management
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminProductsTab()));
+                  },
+                ),
+                _buildActionCard(
+                  context,
+                  title: 'Orders',
+                  icon: Icons.local_shipping,
+                  color: Colors.blue,
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderManagementScreen()));
+                  },
+                ),
+                _buildActionCard(
+                  context,
+                  title: 'Users',
+                  icon: Icons.group,
+                  color: Colors.purple,
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const UserManagementScreen()));
+                  },
+                ),
+                _buildActionCard(
+                  context,
+                  title: 'Reports',
+                  icon: Icons.bar_chart,
+                  color: Colors.green,
+                  onTap: () {
+                    // Navigate to Reports (Future)
+                  },
+                ),
+                _buildActionCard(
+                  context,
+                  title: 'Seed Data',
+                  icon: Icons.data_saver_on,
+                  color: Colors.teal,
+                  onTap: () async {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => const Center(child: CircularProgressIndicator()),
+                    );
+                    
+                    try {
+                      await DataSeeder.seedProducts();
+                      Navigator.pop(context); // Close loading
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sample data seeded successfully!')));
+                    } catch (e) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetricCard(BuildContext context, {
+    required String title,
+    required String value,
+    required String trend,
+    required IconData icon,
+    required Color color,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 160,
+      padding: const EdgeInsets.all(AppTheme.spacingM),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
         ],
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(icon, color: color),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  trend,
+                  style: const TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(title, style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.black54)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionCard(BuildContext context, {
+    required String title,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkCard : Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          border: Border.all(color: isDark ? AppColors.gray700 : AppColors.gray200),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 8),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
       ),
     );
   }

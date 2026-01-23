@@ -7,6 +7,9 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/providers/theme_provider.dart';
 import '../../shared/widgets/section_header.dart';
 import 'order_history_screen.dart';
+import 'wishlist_screen.dart';
+import 'address_screen.dart';
+import 'payment_history_screen.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({super.key});
@@ -107,7 +110,10 @@ class ProfileTab extends StatelessWidget {
                 title: 'Wishlist',
                 subtitle: 'Your saved products',
                 onTap: () {
-                  // Navigate to wishlist
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const WishlistScreen()),
+                  );
                 },
               ),
                _buildSettingsTile(
@@ -116,7 +122,22 @@ class ProfileTab extends StatelessWidget {
                 title: 'Addresses',
                 subtitle: 'Manage delivery addresses',
                 onTap: () {
-                  // Navigate to addresses
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AddressScreen()),
+                  );
+                },
+              ),
+               _buildSettingsTile(
+                context,
+                icon: Icons.payment_outlined,
+                title: 'Payment History',
+                subtitle: 'View your previous transactions',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PaymentHistoryScreen()),
+                  );
                 },
               ),
               
@@ -157,7 +178,7 @@ class ProfileTab extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    context.read<AuthProvider>().logout();
+                    context.read<AuthProvider>().signOut();
                   },
                   icon: const Icon(Icons.logout, color: AppColors.error),
                   label: const Text('Logout', style: TextStyle(color: AppColors.error)),

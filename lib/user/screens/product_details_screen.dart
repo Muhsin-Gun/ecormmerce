@@ -13,8 +13,11 @@ import '../../shared/providers/review_provider.dart';
 import '../../shared/widgets/review_card.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/providers/message_provider.dart';
+import '../../shared/providers/product_provider.dart';
+import '../../shared/providers/wishlist_provider.dart';
 import '../../shared/screens/chat_screen.dart';
 import '../../shared/widgets/auth_button.dart';
+import '../../shared/widgets/product_card.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final ProductModel product;
@@ -63,6 +66,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Add to recently viewed when screen is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ProductProvider>().addToRecentlyViewed(widget.product.productId);
+    });
+
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final size = MediaQuery.of(context).size;
@@ -83,14 +91,20 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               onPressed: () => Navigator.pop(context),
             ),
             actions: [
-              IconButton(
-                icon: const CircleAvatar(
-                  backgroundColor: Colors.black26,
-                  child: Icon(Icons.favorite_border, color: Colors.white),
-                ),
-                onPressed: () {
-                  // Toggle wishlist
-                },
+              Consumer<WishlistProvider>(
+                builder: (context, wishlist, _) {
+                  final isInWishlist = wishlist.isInWishlist(widget.product.productId);
+                  return IconButton(
+                    icon: CircleAvatar(
+                      backgroundColor: Colors.black26,
+                      child: Icon(
+                        isInWishlist ? Icons.favorite : Icons.favorite_border,
+                        color: isInWishlist ? Colors.red : Colors.white,
+                      ),
+                    ),
+                    onPressed: () => wishlist.toggleWishlist(widget.product),
+                  );
+                }
               ),
               const SizedBox(width: 8),
             ],
@@ -292,9 +306,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => ChatScreen(
-                                      conversationId: conversationId,
-                                      otherUserId: 'admin_support',
-                                      otherUserName: 'ProMarket Support',
+                                      chatId: conversationId,
+                                      receiverName: 'ProMarket Support',
                                     ),
                                   ),
                                 );

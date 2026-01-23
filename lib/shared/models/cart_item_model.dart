@@ -80,4 +80,5 @@ class CartItemModel extends Equatable {
   // Compatibility getters for OrderModel
   String get productName => name;
   String? get productImage => imageUrl;
+  double get totalPrice => price * quantity;
 }

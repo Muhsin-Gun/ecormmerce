@@ -9,7 +9,31 @@ class CloudinaryService {
   static const String _uploadPreset = 'ecommerce';
   static const String _baseUrl = 'https://api.cloudinary.com/v1_1/$_cloudName/image/upload';
 
-  /// Upload image file to Cloudinary
+  /// Upload image file (dart:io File) to Cloudinary
+  static Future<String?> uploadImageFile(File file) async {
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse(_baseUrl));
+      request.fields['upload_preset'] = _uploadPreset;
+      
+      request.files.add(await http.MultipartFile.fromPath('file', file.path));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['secure_url'] as String;
+      } else {
+        debugPrint('Cloudinary Upload Failed: ${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Cloudinary Error: $e');
+      return null;
+    }
+  }
+
+  /// Upload XFile (image_picker) to Cloudinary
   static Future<String?> uploadImage(XFile file) async {
     try {
       final request = http.MultipartRequest('POST', Uri.parse(_baseUrl));

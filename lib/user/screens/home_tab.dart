@@ -11,6 +11,7 @@ import '../../shared/providers/product_provider.dart';
 import '../../shared/widgets/category_chip.dart';
 import '../../shared/widgets/product_card.dart';
 import '../../shared/widgets/section_header.dart';
+import '../../shared/widgets/skeleton_loader.dart';
 import 'product_details_screen.dart';
 
 class HomeTab extends StatefulWidget {
@@ -61,7 +62,21 @@ class _HomeTabState extends State<HomeTab> {
       body: Consumer<ProductProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading && provider.products.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
+            return ListView(
+              padding: const EdgeInsets.all(AppTheme.spacingL),
+              children: [
+                const SkeletonLoader(width: double.infinity, height: 180, borderRadius: AppTheme.radiusLarge),
+                const SizedBox(height: 24),
+                const SkeletonLoader(width: 150, height: 24),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    SkeletonLoader.productCard(),
+                    SkeletonLoader.productCard(),
+                  ],
+                ),
+              ],
+            );
           }
 
           return RefreshIndicator(
@@ -108,6 +123,36 @@ class _HomeTabState extends State<HomeTab> {
                               ),
                             );
                           }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // 1.5 Recently Viewed
+                if (provider.recentlyViewedProducts.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SectionHeader(title: 'Recently Viewed'),
+                        SizedBox(
+                          height: 220,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+                            itemCount: provider.recentlyViewedProducts.length,
+                            itemBuilder: (context, index) {
+                              final product = provider.recentlyViewedProducts[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(right: AppTheme.spacingM),
+                                child: ProductCard(
+                                  product: product,
+                                  isCompact: true,
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(product: product))),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ],
                     ),

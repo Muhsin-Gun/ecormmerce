@@ -63,6 +63,13 @@ dependencies:
   # Carousel
   carousel_slider: ^5.0.0
 
+  # Notifications
+  flutter_local_notifications: ^17.2.3
+
+  # PDF Generation & Printing
+  pdf: ^3.11.1
+  printing: ^5.13.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

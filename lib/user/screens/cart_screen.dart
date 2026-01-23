@@ -4,9 +4,9 @@ import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
-import '../providers/cart_provider.dart';
-import '../widgets/auth_button.dart';
-import '../widgets/cart_item_widget.dart';
+import '../../shared/providers/cart_provider.dart';
+import '../../shared/widgets/auth_button.dart';
+import '../../shared/widgets/cart_item_widget.dart'; // Assumed existing or will view/create
 import 'checkout_screen.dart';
 
 class CartScreen extends StatelessWidget {
@@ -19,33 +19,8 @@ class CartScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Cart'),
+        title: const Text('Shopping Cart'),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () {
-              // Confirm Clear
-              showDialog(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Clear Cart'),
-                  content: const Text('Are you sure you want to remove all items?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                    TextButton(
-                      onPressed: () {
-                        context.read<CartProvider>().clearCart();
-                        Navigator.pop(ctx);
-                      },
-                      child: const Text('Clear', style: TextStyle(color: AppColors.error)),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: Consumer<CartProvider>(
         builder: (context, cart, child) {
@@ -53,43 +28,30 @@ class CartScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (cart.isEmpty) {
+          if (cart.items.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(
-                      color: AppColors.electricPurple.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.shopping_cart_outlined,
-                      size: 80,
-                      color: AppColors.electricPurple,
-                    ),
+                  Icon(
+                    Icons.shopping_cart_outlined,
+                    size: 80,
+                    color: isDark ? AppColors.gray700 : AppColors.gray300,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppTheme.spacingM),
                   Text(
-                    'Your Cart is Empty',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    'Your cart is empty',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: isDark ? AppColors.gray500 : AppColors.gray500,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Looks like you haven\'t added anything yet',
-                    style: TextStyle(color: AppColors.gray500),
-                  ),
-                  const SizedBox(height: 32),
-                  AuthButton(
-                    text: 'Start Shopping',
-                    width: 200,
+                  const SizedBox(height: AppTheme.spacingL),
+                  OutlinedButton(
                     onPressed: () {
-                      Navigator.pop(context); // Go back to shop
-                      // Or switch tab if needed via a callback or key
+                      // Navigate back to home/products
+                       Navigator.pop(context);
                     },
+                    child: const Text('Start Shopping'),
                   ),
                 ],
               ),
@@ -98,30 +60,32 @@ class CartScreen extends StatelessWidget {
 
           return Column(
             children: [
-              // Items List
+              // Cart Items List
               Expanded(
                 child: ListView.separated(
                   padding: const EdgeInsets.all(AppTheme.spacingM),
                   itemCount: cart.items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  separatorBuilder: (ctx, i) => const SizedBox(height: AppTheme.spacingM),
                   itemBuilder: (context, index) {
                     final item = cart.items[index];
-                    return CartItemWidget(
-                      item: item,
-                      onIncrement: () => cart.incrementQuantity(item.productId),
-                      onDecrement: () => cart.decrementQuantity(item.productId),
-                      onRemove: () => cart.removeItem(item.productId),
+                    return Hero(
+                      tag: 'cart_item_${item.productId}',
+                      child: CartItemWidget(
+                        item: item,
+                        onIncrement: () => cart.updateQuantity(item.productId, item.quantity + 1),
+                        onDecrement: () => cart.updateQuantity(item.productId, item.quantity - 1),
+                        onRemove: () => cart.removeItem(item.productId),
+                      ),
                     );
                   },
                 ),
               ),
 
-              // Summary
+              // Summary Section
               Container(
                 padding: const EdgeInsets.all(AppTheme.spacingL),
                 decoration: BoxDecoration(
                   color: isDark ? AppColors.darkCard : Colors.white,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.05),
@@ -129,91 +93,71 @@ class CartScreen extends StatelessWidget {
                       offset: const Offset(0, -4),
                     ),
                   ],
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLarge)),
                 ),
                 child: SafeArea(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Coupon Field
-                      Row(
-                        children: [
-                          const Icon(Icons.local_offer_outlined, color: AppColors.gray500),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: cart.couponCode != null
-                                ? Text(
-                                    'Coupon Applied: ${cart.couponCode} (${cart.discount.toInt()}% OFF)',
-                                    style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.bold),
-                                  )
-                                : TextField(
-                                    decoration: const InputDecoration(
-                                      hintText: 'Enter Promo Code',
-                                      border: InputBorder.none,
-                                      enabledBorder: InputBorder.none,
-                                      focusedBorder: InputBorder.none,
-                                      contentPadding: EdgeInsets.zero,
+                      // Coupon Code Input (Simplified)
+                      if (cart.couponCode == null)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 44,
+                                child: TextField(
+                                  decoration: InputDecoration(
+                                    hintText: 'Enter coupon code',
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
-                                    onSubmitted: (value) async {
-                                      if (value.isNotEmpty) {
-                                         final success = await cart.applyCoupon(value);
-                                         if (!success && context.mounted) {
-                                           ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Invalid coupon code')),
-                                           );
-                                         }
-                                      }
-                                    },
                                   ),
-                          ),
-                          if (cart.couponCode != null)
-                             IconButton(
-                               icon: const Icon(Icons.close, size: 18),
-                               onPressed: () => cart.removeCoupon(),
-                             )
-                          else
+                                  onSubmitted: (value) => cart.applyCoupon(value),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
                             TextButton(
                               onPressed: () {
-                                // Trigger validation via controller or dialog
-                              },
-                              child: const Text('APPLY'),
+                                // Trigger coupon dialog or logic
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Try "WELCOME" for 10% off')));
+                              }, 
+                              child: const Text('Apply'),
                             ),
-                        ],
-                      ),
-                      const Divider(),
-                      const SizedBox(height: 8),
+                          ],
+                        )
+                      else
+                         Row(
+                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                           children: [
+                             Text('Coupon: ${cart.couponCode}', style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.bold)),
+                             IconButton(onPressed: () => cart.removeCoupon(), icon: const Icon(Icons.close, color: AppColors.error)),
+                           ],
+                         ),
                       
+                      const SizedBox(height: AppTheme.spacingM),
+
                       // Totals
-                      _buildSummaryRow(
-                        context, 
-                        'Subtotal', 
-                        Formatters.formatCurrency(cart.subtotal),
-                      ),
-                       if (cart.discount > 0)
-                        _buildSummaryRow(
-                          context, 
-                          'Discount', 
-                          '-${Formatters.formatCurrency(cart.discountAmount)}',
-                          isDiscount: true,
-                        ),
-                      const SizedBox(height: 8),
-                      _buildSummaryRow(
-                        context, 
-                        'Total', 
-                        Formatters.formatCurrency(cart.total),
-                        isBold: true,
-                        isTotal: true,
-                      ),
-                      const SizedBox(height: 24),
+                      _buildSummaryRow('Subtotal', Formatters.formatCurrency(cart.subtotal), theme),
+                      if (cart.discount > 0)
+                        _buildSummaryRow('Discount', '-${Formatters.formatCurrency(cart.discountAmount)}', theme, color: AppColors.success),
+                      const Divider(height: 24),
+                      _buildSummaryRow('Total', Formatters.formatCurrency(cart.total), theme, isTotal: true),
                       
+                      const SizedBox(height: AppTheme.spacingL),
+
                       // Checkout Button
                       AuthButton(
-                        text: 'Proceed to Checkout',
+                        text: 'Checkout',
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const CheckoutScreen()),
-                          );
+                           Navigator.push(
+                             context,
+                             MaterialPageRoute(builder: (_) => const CheckoutScreen()),
+                           );
                         },
+                        isLoading: false,
                       ),
                     ],
                   ),
@@ -226,19 +170,7 @@ class CartScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryRow(
-    BuildContext context, 
-    String label, 
-    String value, {
-    bool isBold = false, 
-    bool isTotal = false,
-    bool isDiscount = false,
-  }) {
-    final theme = Theme.of(context);
-    final color = isTotal 
-        ? AppColors.primaryIndigo 
-        : (isDiscount ? AppColors.success : null);
-        
+  Widget _buildSummaryRow(String label, String value, ThemeData theme, {bool isTotal = false, Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -246,18 +178,15 @@ class CartScreen extends StatelessWidget {
         children: [
           Text(
             label,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              fontSize: isTotal ? 18 : 14,
-            ),
+            style: isTotal 
+              ? theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)
+              : theme.textTheme.bodyMedium?.copyWith(color: AppColors.gray500),
           ),
           Text(
             value,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              fontSize: isTotal ? 20 : 14,
-              color: color,
-            ),
+            style: isTotal 
+              ? theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: AppColors.primaryIndigo)
+              : theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),

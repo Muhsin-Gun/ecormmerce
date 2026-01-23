@@ -170,6 +170,14 @@ class FirebaseService {
     return query.snapshots();
   }
 
+  /// Stream collection (Alias for UI compatibility)
+  Stream<QuerySnapshot> getCollectionStream(
+    String collection, {
+    Query Function(Query)? queryBuilder,
+  }) {
+    return streamCollection(collection, queryBuilder: queryBuilder);
+  }
+
   /// Add document
   Future<DocumentReference> addDocument(
     String collection,

@@ -12,6 +12,7 @@ class ProductProvider extends ChangeNotifier {
   List<ProductModel> _filteredProducts = [];
   List<ProductModel> _featuredProducts = [];
   List<ProductModel> _relatedProducts = [];
+  List<String> _recentlyViewedIds = [];
   ProductModel? _selectedProduct;
 
   bool _isLoading = false;
@@ -31,6 +32,7 @@ class ProductProvider extends ChangeNotifier {
   List<ProductModel> get allProducts => _products;
   List<ProductModel> get featuredProducts => _featuredProducts;
   List<ProductModel> get relatedProducts => _relatedProducts;
+  List<ProductModel> get recentlyViewedProducts => _products.where((p) => _recentlyViewedIds.contains(p.productId)).toList();
   ProductModel? get selectedProduct => _selectedProduct;
 
   bool get isLoading => _isLoading;
@@ -178,6 +180,16 @@ class ProductProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading related products: $e');
+    }
+  }
+
+  void addToRecentlyViewed(String productId) {
+    if (!_recentlyViewedIds.contains(productId)) {
+      _recentlyViewedIds.insert(0, productId);
+      if (_recentlyViewedIds.length > 10) {
+        _recentlyViewedIds.removeLast();
+      }
+      notifyListeners();
     }
   }
 
