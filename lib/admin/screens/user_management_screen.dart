@@ -41,7 +41,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               final user = users[index].data() as Map<String, dynamic>;
               final userId = users[index].id;
               final role = user['role'] ?? 'user';
-              final isApproved = user['isApproved'] ?? false;
+              final roleStatus = user['roleStatus'] ?? AppConstants.roleStatusPending;
+              final isApproved = roleStatus == AppConstants.roleStatusApproved;
               final email = user['email'] ?? '';
               final name = user['name'] ?? 'Unknown';
 
@@ -77,31 +78,42 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             ),
                           ),
                         ),
-                        if (!isApproved && (role == 'employee' || role == 'admin')) 
-                           Padding(
-                             padding: const EdgeInsets.only(left: 8.0),
-                             child: Text(
-                               'PENDING APPROVAL',
-                               style: TextStyle(color: AppColors.warning, fontSize: 10, fontWeight: FontWeight.bold),
-                             ),
-                           ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(roleStatus).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            roleStatus.toUpperCase(),
+                            style: TextStyle(
+                              color: _getStatusColor(roleStatus),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ],
                 ),
                 trailing: PopupMenuButton<String>(
                   onSelected: (value) {
-                    if (value == 'approve') _updateUser(userId, {'isApproved': true});
-                    if (value == 'revoke') _updateUser(userId, {'isApproved': false});
-                    if (value == 'make_admin') _updateUser(userId, {'role': 'admin'});
-                    if (value == 'make_employee') _updateUser(userId, {'role': 'employee'});
-                    if (value == 'make_user') _updateUser(userId, {'role': 'user'});
+                    if (value == 'approve') _updateUser(userId, {'roleStatus': AppConstants.roleStatusApproved});
+                    if (value == 'suspend') _updateUser(userId, {'roleStatus': AppConstants.roleStatusSuspended});
+                    if (value == 'reject') _updateUser(userId, {'roleStatus': AppConstants.roleStatusRejected});
+                    if (value == 'make_admin') _updateUser(userId, {'role': AppConstants.roleAdmin});
+                    if (value == 'make_employee') _updateUser(userId, {'role': AppConstants.roleEmployee});
+                    if (value == 'make_user') _updateUser(userId, {'role': AppConstants.roleClient});
                   },
                   itemBuilder: (context) => [
-                    if (!isApproved) 
-                       const PopupMenuItem(value: 'approve', child: Text('Approve Access')),
-                    if (isApproved)
-                       const PopupMenuItem(value: 'revoke', child: Text('Revoke Access')),
+                    if (roleStatus != AppConstants.roleStatusApproved) 
+                       const PopupMenuItem(value: 'approve', child: Text('Approve / Activate')),
+                    if (roleStatus != AppConstants.roleStatusSuspended)
+                       const PopupMenuItem(value: 'suspend', child: Text('Suspend Account')),
+                    if (roleStatus != AppConstants.roleStatusRejected && roleStatus == AppConstants.roleStatusPending)
+                       const PopupMenuItem(value: 'reject', child: Text('Reject Application')),
                     const PopupMenuDivider(),
                     const PopupMenuItem(value: 'make_admin', child: Text('Promote to Admin')),
                     const PopupMenuItem(value: 'make_employee', child: Text('Set to Employee')),
@@ -130,6 +142,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       case 'admin': return AppColors.roleAdmin;
       case 'employee': return AppColors.roleEmployee;
       default: return AppColors.roleUser;
+    }
+  }
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case AppConstants.roleStatusApproved: return AppColors.success;
+      case AppConstants.roleStatusPending: return AppColors.warning;
+      case AppConstants.roleStatusSuspended: return AppColors.error;
+      case AppConstants.roleStatusRejected: return AppColors.gray500;
+      default: return AppColors.gray500;
     }
   }
 }

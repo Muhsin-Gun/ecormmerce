@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -233,12 +234,9 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                   child: _pickedFile != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(11),
-                          child: Image.network(
-                            _pickedFile!.path, // Note: On mobile this should be Image.file, on web Image.network
-                            // For simplicity assuming mobile path works or handling cross-platform
-                            fit: BoxFit.cover,
-                            errorBuilder: (_,__,___) => const Center(child: Icon(Icons.check_circle, size: 50, color: AppColors.success)),
-                          ),
+                          child: kIsWeb 
+                             ? Image.network(_pickedFile!.path, fit: BoxFit.cover)
+                             : Image.file(File(_pickedFile!.path), fit: BoxFit.cover, errorBuilder: (_,__,___) => const Center(child: Icon(Icons.check_circle, size: 50, color: AppColors.success))),
                         )
                       : (_imageController.text.isNotEmpty
                           ? ClipRRect(

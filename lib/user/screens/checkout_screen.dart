@@ -9,6 +9,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../shared/services/firebase_service.dart';
 import '../../shared/widgets/auth_button.dart';
 import '../../shared/widgets/section_header.dart';
+import '../../shared/services/mpesa_service.dart';
 import 'order_success_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -68,15 +69,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     try {
       // simulate network delay for UX
-      await Future.delayed(const Duration(seconds: 2));
-      
       // Save order to Firestore
-      await FirebaseService.instance.addDocument('orders', orderData);
+      final orderDoc = await FirebaseService.instance.addDocument('orders', orderData);
 
-      // Handle MPESA Payment Trigger here logically
+      // Handle MPESA Payment Trigger
       if (_selectedPaymentMethod == 'MPESA') {
-         // Integrating MPESA STK Push would go here
-         // For now, we assume success or handle in background
+         try {
+           final mpesaResponse = await MpesaService.instance.initiateStkPush(
+             phoneNumber: _phoneController.text,
+             amount: cart.total,
+             accountReference: orderDoc.id,
+             transactionDesc: 'Payment for Order ${orderDoc.id}',
+           );
+           
+           if (!mpesaResponse['success']) {
+             // We still place the order but notify user about payment initiation failure
+             if (mounted) {
+               ScaffoldMessenger.of(context).showSnackBar(
+                 SnackBar(content: Text('Payment initiation failed: ${mpesaResponse['error']}')),
+               );
+             }
+           }
+         } catch (e) {
+           debugPrint('MPESA Error: $e');
+         }
       }
 
       // Clear Cart

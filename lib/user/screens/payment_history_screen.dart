@@ -2,26 +2,68 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../core/constants/constants.dart';
+import '../../shared/models/payment_model.dart';
+import '../../shared/services/firebase_service.dart';
 
 class PaymentHistoryScreen extends StatelessWidget {
   const PaymentHistoryScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().userModel;
+    
+    if (user == null) return const Scaffold(body: Center(child: Text('User not found')));
+
     return Scaffold(
       appBar: AppBar(title: const Text('Payment History')),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(AppTheme.spacingM),
-        itemCount: 5, // Mock data
-        separatorBuilder: (_, __) => const SizedBox(height: AppTheme.spacingM),
-        itemBuilder: (context, index) {
-          return _buildPaymentTile(
-            context,
-            date: DateTime.now().subtract(Duration(days: index * 2)),
-            amount: 2500.0 + (index * 150),
-            method: 'M-PESA',
-            status: index == 0 ? 'COMPLETED' : 'SUCCESS',
-            orderId: 'ORD-#${10254 + index}',
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseService.instance.getCollectionStream(
+          AppConstants.transactionsCollection,
+          queryBuilder: (q) => q
+              .where('userId', isEqualTo: user.userId)
+              .orderBy('createdAt', descending: true),
+        ),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.history_outlined, size: 64, color: AppColors.gray400),
+                  const SizedBox(height: 16),
+                  const Text('No payment history found', style: TextStyle(color: AppColors.gray500)),
+                ],
+              ),
+            );
+          }
+
+          final payments = snapshot.data!.docs
+              .map((doc) => PaymentModel.fromFirestore(doc))
+              .toList();
+
+          return ListView.separated(
+            padding: const EdgeInsets.all(AppTheme.spacingM),
+            itemCount: payments.length,
+            separatorBuilder: (_, __) => const SizedBox(height: AppTheme.spacingM),
+            itemBuilder: (context, index) {
+              final payment = payments[index];
+              return _buildPaymentTile(
+                context,
+                date: payment.createdAt,
+                amount: payment.amount,
+                method: payment.method.toUpperCase(),
+                status: payment.status.toUpperCase(),
+                orderId: payment.orderId,
+              );
+            },
           );
         },
       ),

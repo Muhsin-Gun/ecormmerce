@@ -355,12 +355,19 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
                         // Show top 3 reviews
                         return Column(
-                          children: reviewProvider.reviews.take(3).map((review) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: AppTheme.spacingM),
-                              child: ReviewCard(review: review),
-                            );
-                          }).toList(),
+                          children: [
+                            ...reviewProvider.reviews.take(3).map((review) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: AppTheme.spacingM),
+                                child: ReviewCard(review: review),
+                              );
+                            }),
+                            TextButton.icon(
+                              onPressed: () => _showAddReviewDialog(context),
+                              icon: const Icon(Icons.rate_review_outlined),
+                              label: const Text('Write a Review'),
+                            ),
+                          ],
                         );
                       },
                     ),
@@ -472,6 +479,71 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showAddReviewDialog(BuildContext context) async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please login to review')));
+      return;
+    }
+
+    double rating = 5.0;
+    final commentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Write a Review'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) => IconButton(
+                  icon: Icon(
+                    index < rating ? Icons.star : Icons.star_border,
+                    color: AppColors.warning,
+                  ),
+                  onPressed: () => setState(() => rating = index + 1.0),
+                )),
+              ),
+              TextField(
+                controller: commentController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Share your experience...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                if (commentController.text.isEmpty) return;
+                
+                try {
+                  await context.read<ReviewProvider>().addReview(
+                    widget.product.productId,
+                    auth.userModel!.userId,
+                    auth.userModel!.name,
+                    rating,
+                    commentController.text,
+                  );
+                  if (context.mounted) Navigator.pop(context);
+                } catch (e) {
+                  debugPrint('Review Error: $e');
+                }
+              }, 
+              child: const Text('Submit'),
+            ),
+          ],
         ),
       ),
     );

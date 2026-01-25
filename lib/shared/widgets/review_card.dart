@@ -17,8 +17,8 @@ class ReviewCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      margin: const EdgeInsets.only(right: 16),
-      width: 280,
+      margin: const EdgeInsets.only(bottom: 16),
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkCard : Colors.white,

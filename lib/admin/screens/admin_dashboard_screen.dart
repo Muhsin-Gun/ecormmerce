@@ -3,12 +3,12 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-import '../../shared/widgets/glass_container.dart';
+import '../../shared/screens/order_management_screen.dart';
+import '../../shared/services/firebase_service.dart';
 import '../../shared/widgets/section_header.dart';
+import 'admin_products_tab.dart';
+import 'user_management_screen.dart';
 import '../../shared/services/data_seeder.dart';
-import 'admin_products_tab.dart'; // To be implemented/updated
-import 'user_management_screen.dart'; // To be implemented
-import '../../shared/screens/order_management_screen.dart'; // To be implemented
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -25,169 +25,190 @@ class AdminDashboardScreen extends StatelessWidget {
           IconButton(icon: const Icon(Icons.notifications), onPressed: () {}),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppTheme.spacingM),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. Key Metrics Cards
-            SizedBox(
-              height: 140,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  _buildMetricCard(
-                    context,
-                    title: 'Total Revenue',
-                    value: 'KES 1.2M', // Placeholder - normally stream/future
-                    trend: '+12%',
-                    icon: Icons.attach_money,
-                    color: AppColors.success,
-                  ),
-                  const SizedBox(width: AppTheme.spacingM),
-                  _buildMetricCard(
-                    context,
-                    title: 'Total Orders',
-                    value: '1,245',
-                    trend: '+5%',
-                    icon: Icons.shopping_bag,
-                    color: AppColors.electricPurple,
-                  ),
-                  const SizedBox(width: AppTheme.spacingM),
-                  _buildMetricCard(
-                    context,
-                    title: 'Active Users',
-                    value: '8,502',
-                    trend: '+8%',
-                    icon: Icons.people,
-                    color: AppColors.neonBlue,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppTheme.spacingL),
-
-            // 2. Revenue Chart (Placeholder for now)
-            const SectionHeader(title: 'Revenue Analytics'),
-            Container(
-              height: 250,
-              padding: const EdgeInsets.all(AppTheme.spacingM),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkCard : Colors.white,
-                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-              ),
-              child: BarChart(
-                BarChartData(
-                  borderData: FlBorderData(show: false),
-                  gridData: FlGridData(show: false),
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (value, meta) {
-                          const titles = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                          return Text(
-                            titles[value.toInt() % titles.length],
-                            style: const TextStyle(fontSize: 10),
-                          );
-                        },
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _fetchDashboardStats(),
+        builder: (context, statsSnapshot) {
+          final stats = statsSnapshot.data ?? {
+            'revenue': 0.0,
+            'orders': 0,
+            'users': 0,
+            'chartData': <double>[0, 0, 0, 0, 0, 0, 0],
+          };
+          
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(AppTheme.spacingM),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. Key Metrics Cards
+                SizedBox(
+                  height: 140,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      _buildMetricCard(
+                        context,
+                        title: 'Total Revenue',
+                        value: 'KES ${(stats['revenue'] / 1000).toStringAsFixed(1)}K', 
+                        trend: '+12%',
+                        icon: Icons.attach_money,
+                        color: AppColors.success,
+                        isLoading: statsSnapshot.connectionState == ConnectionState.waiting,
                       ),
+                      const SizedBox(width: AppTheme.spacingM),
+                      _buildMetricCard(
+                        context,
+                        title: 'Total Orders',
+                        value: '${stats['orders']}',
+                        trend: '+5%',
+                        icon: Icons.shopping_bag,
+                        color: AppColors.electricPurple,
+                        isLoading: statsSnapshot.connectionState == ConnectionState.waiting,
+                      ),
+                      const SizedBox(width: AppTheme.spacingM),
+                      _buildMetricCard(
+                        context,
+                        title: 'Active Users',
+                        value: '${stats['users']}',
+                        trend: '+8%',
+                        icon: Icons.people,
+                        color: AppColors.neonBlue,
+                        isLoading: statsSnapshot.connectionState == ConnectionState.waiting,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppTheme.spacingL),
+
+                // 2. Revenue Chart
+                const SectionHeader(title: 'Revenue Analytics'),
+                Container(
+                  height: 250,
+                  padding: const EdgeInsets.all(AppTheme.spacingM),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkCard : Colors.white,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  ),
+                  child: BarChart(
+                    BarChartData(
+                      borderData: FlBorderData(show: false),
+                      gridData: FlGridData(show: false),
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              const titles = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                              return Text(
+                                titles[value.toInt() % titles.length],
+                                style: const TextStyle(fontSize: 10),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      barGroups: List.generate(7, (index) {
+                        final chartData = stats['chartData'] as List<double>;
+                        return BarChartGroupData(
+                          x: index,
+                          barRods: [
+                            BarChartRodData(
+                              toY: chartData[index],
+                              color: AppColors.electricPurple,
+                              width: 16,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ],
+                        );
+                      }),
                     ),
                   ),
-                  barGroups: List.generate(7, (index) {
-                    return BarChartGroupData(
-                      x: index,
-                      barRods: [
-                        BarChartRodData(
-                          toY: (index + 1) * 10.0 + (index % 2) * 5,
-                          color: AppColors.electricPurple,
-                          width: 16,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ],
-                    );
-                  }),
                 ),
-              ),
-            ),
-            const SizedBox(height: AppTheme.spacingL),
+                const SizedBox(height: AppTheme.spacingL),
 
-            // 3. Quick Actions Grid
-            const SectionHeader(title: 'Management'),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: AppTheme.spacingM,
-              crossAxisSpacing: AppTheme.spacingM,
-              childAspectRatio: 1.5,
-              children: [
-                _buildActionCard(
-                  context,
-                  title: 'Products',
-                  icon: Icons.inventory_2,
-                  color: Colors.orange,
-                  onTap: () {
-                    // Navigate to Products Management
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminProductsTab()));
-                  },
-                ),
-                _buildActionCard(
-                  context,
-                  title: 'Orders',
-                  icon: Icons.local_shipping,
-                  color: Colors.blue,
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderManagementScreen()));
-                  },
-                ),
-                _buildActionCard(
-                  context,
-                  title: 'Users',
-                  icon: Icons.group,
-                  color: Colors.purple,
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const UserManagementScreen()));
-                  },
-                ),
-                _buildActionCard(
-                  context,
-                  title: 'Reports',
-                  icon: Icons.bar_chart,
-                  color: Colors.green,
-                  onTap: () {
-                    // Navigate to Reports (Future)
-                  },
-                ),
-                _buildActionCard(
-                  context,
-                  title: 'Seed Data',
-                  icon: Icons.data_saver_on,
-                  color: Colors.teal,
-                  onTap: () async {
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (context) => const Center(child: CircularProgressIndicator()),
-                    );
-                    
-                    try {
-                      await DataSeeder.seedProducts();
-                      Navigator.pop(context); // Close loading
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sample data seeded successfully!')));
-                    } catch (e) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                    }
-                  },
+                // 3. Quick Actions Grid
+                const SectionHeader(title: 'Management'),
+                GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: AppTheme.spacingM,
+                  crossAxisSpacing: AppTheme.spacingM,
+                  childAspectRatio: 1.5,
+                  children: [
+                    _buildActionCard(
+                      context,
+                      title: 'Products',
+                      icon: Icons.inventory_2,
+                      color: Colors.orange,
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminProductsTab()));
+                      },
+                    ),
+                    _buildActionCard(
+                      context,
+                      title: 'Orders',
+                      icon: Icons.local_shipping,
+                      color: Colors.blue,
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderManagementScreen()));
+                      },
+                    ),
+                    _buildActionCard(
+                      context,
+                      title: 'Users',
+                      icon: Icons.group,
+                      color: Colors.purple,
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const UserManagementScreen()));
+                      },
+                    ),
+                    _buildActionCard(
+                      context,
+                      title: 'Reports',
+                      icon: Icons.bar_chart,
+                      color: Colors.green,
+                      onTap: () {},
+                    ),
+                    _buildActionCard(
+                      context,
+                      title: 'Seed Data',
+                      icon: Icons.data_saver_on,
+                      color: Colors.teal,
+                      onTap: () async {
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) => const Center(child: CircularProgressIndicator()),
+                        );
+                        
+                        try {
+                          await DataSeeder.seedProducts();
+                          if (context.mounted) Navigator.pop(context);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Sample data seeded successfully!')),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) Navigator.pop(context);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $e')),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -198,6 +219,7 @@ class AdminDashboardScreen extends StatelessWidget {
     required String trend,
     required IconData icon,
     required Color color,
+    bool isLoading = false,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
@@ -215,33 +237,81 @@ class AdminDashboardScreen extends StatelessWidget {
         ],
         border: Border.all(color: color.withOpacity(0.2)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
+      child: isLoading 
+        ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: color),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.success.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  trend,
-                  style: const TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold),
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Icon(icon, color: color),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      trend,
+                      style: const TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 8),
+              Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(title, style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.black54)),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          Text(title, style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.black54)),
-        ],
-      ),
     );
+  }
+
+  Future<Map<String, dynamic>> _fetchDashboardStats() async {
+    try {
+      final userCount = await FirebaseService.instance.countDocuments(AppConstants.usersCollection);
+      final orderCount = await FirebaseService.instance.countDocuments(AppConstants.ordersCollection);
+      
+      final ordersSnapshot = await FirebaseService.instance.getCollection(
+        AppConstants.ordersCollection,
+        queryBuilder: (q) => q.where('status', isNotEqualTo: AppConstants.orderStatusCancelled),
+      );
+      
+      double totalRevenue = 0;
+      List<double> chartData = List.filled(7, 0.0);
+      final now = DateTime.now();
+      
+      for (var doc in ordersSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final amount = (data['totalAmount'] ?? 0).toDouble();
+        totalRevenue += amount;
+        
+        final createdAtStr = data['createdAt'] as String?;
+        if (createdAtStr != null) {
+          final createdAt = DateTime.parse(createdAtStr);
+          final diff = now.difference(createdAt).inDays;
+          if (diff < 7) {
+            chartData[6 - diff] += amount / 1000;
+          }
+        }
+      }
+
+      return {
+        'revenue': totalRevenue,
+        'orders': orderCount,
+        'users': userCount,
+        'chartData': chartData,
+      };
+    } catch (e) {
+      debugPrint('Error fetching dashboard stats: $e');
+      return {
+        'revenue': 0.0,
+        'orders': 0,
+        'users': 0,
+        'chartData': List.filled(7, 0.0),
+      };
+    }
   }
 
   Widget _buildActionCard(BuildContext context, {

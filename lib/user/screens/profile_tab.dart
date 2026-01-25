@@ -10,6 +10,8 @@ import 'order_history_screen.dart';
 import 'wishlist_screen.dart';
 import 'address_screen.dart';
 import 'payment_history_screen.dart';
+import 'edit_profile_screen.dart';
+import '../../shared/services/firebase_service.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({super.key});
@@ -89,7 +91,10 @@ class ProfileTab extends StatelessWidget {
                 title: 'Personal Details',
                 subtitle: 'Edit name, phone, address',
                 onTap: () {
-                  // Navigate to edit profile
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+                  );
                 },
               ),
                _buildSettingsTile(
@@ -162,12 +167,10 @@ class ProfileTab extends StatelessWidget {
                 context,
                 icon: Icons.notifications_none,
                 title: 'Notifications',
-                onTap: () {
-                   // Toggle notifications
-                },
+                onTap: () => _toggleNotifications(context, user.notificationsEnabled),
                 trailing: Switch(
-                  value: true, 
-                  onChanged: (val) {},
+                  value: user.notificationsEnabled, 
+                  onChanged: (val) => _toggleNotifications(context, user.notificationsEnabled),
                   activeColor: AppColors.electricPurple,
                 ),
               ),
@@ -219,5 +222,15 @@ class ProfileTab extends StatelessWidget {
       trailing: trailing ?? const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: onTap,
     );
+  }
+
+  Future<void> _toggleNotifications(BuildContext context, bool current) async {
+    try {
+      await FirebaseService.instance.updateCurrentUserDocument({
+        'notificationsEnabled': !current,
+      });
+    } catch (e) {
+      debugPrint('Error toggling notifications: $e');
+    }
   }
 }
