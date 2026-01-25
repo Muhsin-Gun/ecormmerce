@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
@@ -287,9 +288,9 @@ class AdminDashboardScreen extends StatelessWidget {
         final amount = (data['totalAmount'] ?? 0).toDouble();
         totalRevenue += amount;
         
-        final createdAtStr = data['createdAt'] as String?;
-        if (createdAtStr != null) {
-          final createdAt = DateTime.parse(createdAtStr);
+        final createdAtTimestamp = data['createdAt'] as Timestamp?;
+        if (createdAtTimestamp != null) {
+          final createdAt = createdAtTimestamp.toDate();
           final diff = now.difference(createdAt).inDays;
           if (diff < 7) {
             chartData[6 - diff] += amount / 1000;

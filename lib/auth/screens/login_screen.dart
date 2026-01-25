@@ -192,10 +192,41 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             // Login Button
                             Consumer<AuthProvider>(
                               builder: (context, auth, _) {
-                                return AuthButton(
-                                  text: 'Sign In',
-                                  onPressed: _login,
-                                  isLoading: auth.isLoading,
+                                return Column(
+                                  children: [
+                                    AuthButton(
+                                      text: 'Sign In',
+                                      onPressed: _login,
+                                      isLoading: auth.isLoading,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    
+                                    // BYPASS: Quick Admin Access
+                                    OutlinedButton(
+                                      onPressed: () async {
+                                        const email = 'admin@promarket.com';
+                                        const password = 'Password123!';
+                                        
+                                        // Auto-register if not exists
+                                        await auth.register(
+                                          email: email,
+                                          password: password,
+                                          name: 'System Admin',
+                                          phone: '0700000000',
+                                          role: AppConstants.roleAdmin,
+                                        );
+                                        
+                                        // Then login
+                                        await auth.login(email: email, password: password);
+                                      },
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.neonBlue,
+                                        side: const BorderSide(color: AppColors.neonBlue),
+                                        minimumSize: const Size(double.infinity, 50),
+                                      ),
+                                      child: const Text('BYPASS LOGIN (ADMIN)'),
+                                    ),
+                                  ],
                                 );
                               },
                             ),

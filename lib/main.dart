@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
@@ -29,7 +30,13 @@ void main() async {
   );
 
   // Initialize Notifications
-  await NotificationService.init();
+  try {
+    if (!kIsWeb) {
+      await NotificationService.init();
+    }
+  } catch (e) {
+    debugPrint('Notification init failed: $e');
+  }
   
   runApp(const ProMarketApp());
 }
