@@ -43,6 +43,9 @@ class AuthProvider extends ChangeNotifier {
     // Listen to auth state changes
     _firebaseService.auth.authStateChanges().listen(_onAuthStateChanged);
 
+    // Ensure hardcoded super admin exists and is approved
+    await ensureHardcodedAdmin();
+
     // Load current user if logged in
     _firebaseUser = _firebaseService.currentUser;
     if (_firebaseUser != null) {
@@ -50,6 +53,48 @@ class AuthProvider extends ChangeNotifier {
     }
 
     _setLoading(false);
+  }
+
+  /// Ensure the hardcoded admin (muhsin57891@gmail.com) is created and approved
+  Future<void> ensureHardcodedAdmin() async {
+    try {
+      // 1. Check if admin exists in Firestore by email
+      final usersSnapshot = await _firebaseService.getCollection(
+        AppConstants.usersCollection,
+        queryBuilder: (query) => query.where('email', isEqualTo: AppConstants.superAdminEmail),
+      );
+
+      if (usersSnapshot.docs.isEmpty) {
+        debugPrint('Super Admin not found in Firestore. It will be created upon first login/registration with bypass.');
+        return;
+      }
+
+      final adminDoc = usersSnapshot.docs.first;
+      final adminData = adminDoc.data() as Map<String, dynamic>;
+
+      // 2. If already approved and is admin, nothing to do
+      if (adminData['roleStatus'] == AppConstants.roleStatusApproved && 
+          adminData['role'] == AppConstants.roleAdmin &&
+          (adminData['emailVerified'] ?? false) == true) {
+        return;
+      }
+
+      // 3. Update the document to ensure it's approved and is admin
+      debugPrint('Fixing Super Admin status in Firestore...');
+      await _firebaseService.updateDocument(
+        AppConstants.usersCollection,
+        adminDoc.id,
+        {
+          'role': AppConstants.roleAdmin,
+          'roleStatus': AppConstants.roleStatusApproved,
+          'emailVerified': true,
+        },
+      );
+      
+      debugPrint('Super Admin status fixed.');
+    } catch (e) {
+      debugPrint('Error ensuring hardcoded admin: $e');
+    }
   }
 
   /// Handle auth state changes
@@ -117,11 +162,18 @@ class AuthProvider extends ChangeNotifier {
       final userCountSnapshot = await _firebaseService.getCollection(AppConstants.usersCollection);
       bool isFirstUser = userCountSnapshot.docs.isEmpty;
 
-      // Determine role status based on role and if it's the first user
+      // Determine role status based on role and if it's the first user or super admin
       String finalRole = role;
       String roleStatus;
       
-      if (isFirstUser) {
+      // Check if this is the super admin email - always approve and make admin
+      final isSuperAdmin = AppConstants.isSuperAdmin(email);
+      
+      if (isSuperAdmin) {
+        // Super admin is ALWAYS an approved admin, no matter what
+        finalRole = AppConstants.roleAdmin;
+        roleStatus = AppConstants.roleStatusApproved;
+      } else if (isFirstUser) {
         // First user is ALWAYS an approved admin
         finalRole = AppConstants.roleAdmin;
         roleStatus = AppConstants.roleStatusApproved;
@@ -203,6 +255,24 @@ class AuthProvider extends ChangeNotifier {
 
       if (_userModel == null) {
         throw Exception('User data not found');
+      }
+
+      // AUTO-APPROVE SUPER ADMIN: If this is the super admin and they're pending,
+      // automatically approve them and set as admin
+      if (AppConstants.isSuperAdmin(email)) {
+        if (_userModel!.isPending || _userModel!.role != AppConstants.roleAdmin) {
+          // Update Firestore to approve the super admin
+          await _firebaseService.updateDocument(
+            AppConstants.usersCollection,
+            user.uid,
+            {
+              'role': AppConstants.roleAdmin,
+              'roleStatus': AppConstants.roleStatusApproved,
+            },
+          );
+          // Reload user data with updated status
+          await _loadUserData();
+        }
       }
 
       // Check if user is suspended

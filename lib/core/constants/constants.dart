@@ -39,6 +39,19 @@ class AppConstants {
   static const String roleEmployee = 'employee';
   static const String roleAdmin = 'admin';
 
+  // ==================== SUPER ADMIN (HARDCODED) ====================
+  
+  /// Super admin email - this account bypasses all approval requirements
+  static const String superAdminEmail = 'muhsin57891@gmail.com';
+  /// Super admin password - hardcoded for development
+  static const String superAdminPassword = 'Wrongshooter@1';
+  
+  /// Check if an email is the super admin
+  static bool isSuperAdmin(String? email) {
+    if (email == null) return false;
+    return email.toLowerCase() == superAdminEmail.toLowerCase();
+  }
+
   // ==================== ROLE STATUS ====================
   
   static const String roleStatusPending = 'pending';

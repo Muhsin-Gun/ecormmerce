@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import '../screens/email_verification_screen.dart';
 import '../screens/login_screen.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/constants/constants.dart';
 
 /// Authentication Wrapper
 /// Routes the user to the correct screen based on auth state and role status
@@ -57,7 +58,8 @@ class AuthWrapper extends StatelessWidget {
         }
 
         // 4. Check role status (Pending - for Employees/Admins)
-        if (user.isPending) {
+        // BYPASS: Super admin is never blocked by pending status
+        if (user.isPending && !AppConstants.isSuperAdmin(user.email)) {
           return _StatusScreen(
             icon: Icons.hourglass_empty,
             color: AppColors.warning,
@@ -68,8 +70,8 @@ class AuthWrapper extends StatelessWidget {
         }
 
         // 5. Check email verification (For Clients mainly, but good for all)
-        // Note: You might want to force verification only for clients if you auto-verify others
-        if (!auth.isEmailVerified) {
+        // BYPASS: Super admin doesn't need email verification
+        if (!auth.isEmailVerified && !AppConstants.isSuperAdmin(user.email)) {
           return const EmailVerificationScreen();
         }
 
