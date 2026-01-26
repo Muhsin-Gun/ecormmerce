@@ -19,6 +19,7 @@ class UserModel extends Equatable {
   // Preferences
   final bool darkMode;
   final bool notificationsEnabled;
+  final bool isRoot;
   
   // Optional fields
   final List<AddressData>? addresses;
@@ -35,8 +36,9 @@ class UserModel extends Equatable {
     this.emailVerified = false,
     required this.createdAt,
     required this.updatedAt,
-    this.darkMode = true, // Dark mode first
+    this.darkMode = true, 
     this.notificationsEnabled = true,
+    this.isRoot = false,
     this.addresses,
     this.preferences,
   });
@@ -60,6 +62,7 @@ class UserModel extends Equatable {
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       darkMode: data['darkMode'] ?? true,
       notificationsEnabled: data['notificationsEnabled'] ?? true,
+      isRoot: data['isRoot'] ?? false,
       addresses: data['addresses'] != null
           ? (data['addresses'] as List)
               .map((addr) => AddressData.fromMap(addr as Map<String, dynamic>))
@@ -88,6 +91,7 @@ class UserModel extends Equatable {
           : DateTime.parse(map['updatedAt'] ?? DateTime.now().toIso8601String()),
       darkMode: map['darkMode'] ?? true,
       notificationsEnabled: map['notificationsEnabled'] ?? true,
+      isRoot: map['isRoot'] ?? false,
       addresses: map['addresses'] != null
           ? (map['addresses'] as List)
               .map((addr) => AddressData.fromMap(addr as Map<String, dynamic>))
@@ -114,6 +118,7 @@ class UserModel extends Equatable {
       'updatedAt': Timestamp.fromDate(updatedAt),
       'darkMode': darkMode,
       'notificationsEnabled': notificationsEnabled,
+      'isRoot': isRoot,
       'addresses': addresses?.map((addr) => addr.toMap()).toList(),
       'preferences': preferences,
     };
@@ -134,6 +139,7 @@ class UserModel extends Equatable {
     DateTime? updatedAt,
     bool? darkMode,
     bool? notificationsEnabled,
+    bool? isRoot,
     List<AddressData>? addresses,
     Map<String, dynamic>? preferences,
   }) {
@@ -150,6 +156,7 @@ class UserModel extends Equatable {
       updatedAt: updatedAt ?? this.updatedAt,
       darkMode: darkMode ?? this.darkMode,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+      isRoot: isRoot ?? this.isRoot,
       addresses: addresses ?? this.addresses,
       preferences: preferences ?? this.preferences,
     );

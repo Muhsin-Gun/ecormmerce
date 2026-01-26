@@ -9,7 +9,10 @@ import '../../shared/services/firebase_service.dart';
 import '../../shared/widgets/section_header.dart';
 import 'admin_products_tab.dart';
 import 'user_management_screen.dart';
-import '../../shared/services/data_seeder.dart';
+import 'package:provider/provider.dart';
+import '../../auth/providers/auth_provider.dart';
+import 'admin_approval_screen.dart';
+import 'audit_logs_screen.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -18,11 +21,35 @@ class AdminDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final authProvider = context.read<AuthProvider>();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.redAccent),
+            tooltip: 'Logout',
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Confirm Logout'),
+                  content: const Text('Are you sure you want to log out?'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Logout', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true) {
+                await authProvider.signOut();
+              }
+            },
+          ),
           IconButton(icon: const Icon(Icons.notifications), onPressed: () {}),
         ],
       ),

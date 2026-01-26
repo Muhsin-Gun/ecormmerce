@@ -1,141 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../core/constants/constants.dart';
+import '../services/auth_service.dart';
 import '../models/user_model.dart';
-import '../../shared/services/firebase_service.dart';
+import '../../core/constants/constants.dart';
 
-/// Authentication Provider for managing user authentication and user state
-/// Handles login, registration, role management, and user profile
 class AuthProvider extends ChangeNotifier {
-  final FirebaseService _firebaseService = FirebaseService.instance;
-
+  final AuthService _authService = AuthService();
+  
   UserModel? _userModel;
   bool _isLoading = false;
   String? _errorMessage;
-  User? _firebaseUser;
-
-  // ==================== GETTERS ====================
 
   UserModel? get userModel => _userModel;
-  User? get firebaseUser => _firebaseUser;
+  User? get firebaseUser => FirebaseAuth.instance.currentUser;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  bool get isAuthenticated => _firebaseUser != null && _userModel != null;
-  bool get isEmailVerified => _firebaseUser?.emailVerified ?? false;
+  bool get isAuthenticated => FirebaseAuth.instance.currentUser != null;
 
-  // Role checks
-  bool get isClient => _userModel?.isClient ?? false;
-  bool get isEmployee => _userModel?.isEmployee ?? false;
-  bool get isAdmin => _userModel?.isAdmin ?? false;
-
-  // Status checks
+  // Compatibility getters for existing code
+  bool get isAdmin => _userModel?.role == AppConstants.roleAdmin;
+  bool get isEmployee => _userModel?.role == AppConstants.roleEmployee;
+  bool get isClient => _userModel?.role == AppConstants.roleClient;
   bool get isApproved => _userModel?.isApproved ?? false;
   bool get isPending => _userModel?.isPending ?? false;
-  bool get isSuspended => _userModel?.isSuspended ?? false;
-  bool get isRejected => _userModel?.isRejected ?? false;
+  bool get isEmailVerified => FirebaseAuth.instance.currentUser?.emailVerified ?? false;
 
-  // ==================== INITIALIZATION ====================
-
-  /// Initialize auth state
+  /// Initialize and load user data
   Future<void> init() async {
     _setLoading(true);
-
-    // Listen to auth state changes
-    _firebaseService.auth.authStateChanges().listen(_onAuthStateChanged);
-
-    // Ensure hardcoded super admin exists and is approved
-    await ensureHardcodedAdmin();
-
-    // Load current user if logged in
-    _firebaseUser = _firebaseService.currentUser;
-    if (_firebaseUser != null) {
-      await _loadUserData();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        _userModel = await _authService.login(user.email!, 'DUMMY_NOT_USED');
+      } catch (e) {
+        debugPrint('Auth init user load: $e');
+      }
     }
-
     _setLoading(false);
   }
 
-  /// Ensure the hardcoded admin (muhsin57891@gmail.com) is created and approved
-  Future<void> ensureHardcodedAdmin() async {
+  /// 🔐 LOGIN
+  Future<bool> login({required String email, required String password}) async {
+    _setLoading(true);
+    _clearError();
     try {
-      // 1. Check if admin exists in Firestore by email
-      final usersSnapshot = await _firebaseService.getCollection(
-        AppConstants.usersCollection,
-        queryBuilder: (query) => query.where('email', isEqualTo: AppConstants.superAdminEmail),
-      );
-
-      if (usersSnapshot.docs.isEmpty) {
-        debugPrint('Super Admin not found in Firestore. It will be created upon first login/registration with bypass.');
-        return;
-      }
-
-      final adminDoc = usersSnapshot.docs.first;
-      final adminData = adminDoc.data() as Map<String, dynamic>;
-
-      // 2. If already approved and is admin, nothing to do
-      if (adminData['roleStatus'] == AppConstants.roleStatusApproved && 
-          adminData['role'] == AppConstants.roleAdmin &&
-          (adminData['emailVerified'] ?? false) == true) {
-        return;
-      }
-
-      // 3. Update the document to ensure it's approved and is admin
-      debugPrint('Fixing Super Admin status in Firestore...');
-      await _firebaseService.updateDocument(
-        AppConstants.usersCollection,
-        adminDoc.id,
-        {
-          'role': AppConstants.roleAdmin,
-          'roleStatus': AppConstants.roleStatusApproved,
-          'emailVerified': true,
-        },
-      );
-      
-      debugPrint('Super Admin status fixed.');
+      _userModel = await _authService.login(email, password);
+      _setLoading(false);
+      return true;
     } catch (e) {
-      debugPrint('Error ensuring hardcoded admin: $e');
+      _setError(e.toString());
+      _setLoading(false);
+      return false;
     }
   }
 
-  /// Handle auth state changes
-  Future<void> _onAuthStateChanged(User? user) async {
-    _firebaseUser = user;
-
-    if (user != null) {
-      await _loadUserData();
-    } else {
-      _userModel = null;
-      notifyListeners();
-    }
-  }
-
-  /// Load user data from Firestore
-  Future<void> _loadUserData() async {
-    if (_firebaseUser == null) return;
-
-    try {
-      final doc = await _firebaseService.getDocument(
-        AppConstants.usersCollection,
-        _firebaseUser!.uid,
-      );
-
-      if (doc.exists) {
-        _userModel = UserModel.fromFirestore(doc);
-        _errorMessage = null;
-      } else {
-        // User document doesn't exist, might need to create it
-        _userModel = null;
-      }
-
-      notifyListeners();
-    } catch (e) {
-      _setError('Error loading user data: ${e.toString()}');
-    }
-  }
-
-  // ==================== REGISTRATION ====================
-
-  /// Register new user with email and password
+  /// 📝 REGISTER
   Future<bool> register({
     required String email,
     required String password,
@@ -145,391 +64,85 @@ class AuthProvider extends ChangeNotifier {
   }) async {
     _setLoading(true);
     _clearError();
-
     try {
-      // Create Firebase Auth user
-      final userCredential = await _firebaseService.registerWithEmailAndPassword(
+      await _authService.register(
         email: email,
         password: password,
-      );
-
-      final user = userCredential.user;
-      if (user == null) {
-        throw Exception('Failed to create user');
-      }
-
-      // Check if this is the first user
-      final userCountSnapshot = await _firebaseService.getCollection(AppConstants.usersCollection);
-      bool isFirstUser = userCountSnapshot.docs.isEmpty;
-
-      // Determine role status based on role and if it's the first user or super admin
-      String finalRole = role;
-      String roleStatus;
-      
-      // Check if this is the super admin email - always approve and make admin
-      final isSuperAdmin = AppConstants.isSuperAdmin(email);
-      
-      if (isSuperAdmin) {
-        // Super admin is ALWAYS an approved admin, no matter what
-        finalRole = AppConstants.roleAdmin;
-        roleStatus = AppConstants.roleStatusApproved;
-      } else if (isFirstUser) {
-        // First user is ALWAYS an approved admin
-        finalRole = AppConstants.roleAdmin;
-        roleStatus = AppConstants.roleStatusApproved;
-      } else if (role == AppConstants.roleClient) {
-        // Clients are auto-approved
-        roleStatus = AppConstants.roleStatusApproved;
-      } else {
-        // Employees and Admins need approval
-        roleStatus = AppConstants.roleStatusPending;
-      }
-
-      // Create user document in Firestore
-      final userModel = UserModel(
-        userId: user.uid,
-        email: email,
+        role: role,
         name: name,
         phone: phone,
-        role: finalRole,
-        roleStatus: roleStatus,
-        emailVerified: false,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        darkMode: true, // Default to dark mode
-        notificationsEnabled: true,
       );
-
-      await _firebaseService.setDocument(
-        AppConstants.usersCollection,
-        user.uid,
-        userModel.toMap(),
-      );
-
-      // Send email verification
-      await _firebaseService.sendEmailVerification();
-
-      // Load user data
-      _userModel = userModel;
-      _firebaseUser = user;
-
-      _setLoading(false);
-      notifyListeners();
-      return true;
-    } on FirebaseAuthException catch (e) {
-      _setError(_firebaseService.getErrorMessage(e));
-      _setLoading(false);
-      return false;
-    } catch (e) {
-      _setError('Registration failed: ${e.toString()}');
-      _setLoading(false);
-      return false;
-    }
-  }
-
-  // ==================== LOGIN ====================
-
-  /// Sign in with email and password
-  Future<bool> login({
-    required String email,
-    required String password,
-  }) async {
-    _setLoading(true);
-    _clearError();
-
-    try {
-      final userCredential = await _firebaseService.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      final user = userCredential.user;
-      if (user == null) {
-        throw Exception('Failed to sign in');
-      }
-
-      _firebaseUser = user;
-
-      // Load user data
-      await _loadUserData();
-
-      if (_userModel == null) {
-        throw Exception('User data not found');
-      }
-
-      // AUTO-APPROVE SUPER ADMIN: If this is the super admin and they're pending,
-      // automatically approve them and set as admin
-      if (AppConstants.isSuperAdmin(email)) {
-        if (_userModel!.isPending || _userModel!.role != AppConstants.roleAdmin) {
-          // Update Firestore to approve the super admin
-          await _firebaseService.updateDocument(
-            AppConstants.usersCollection,
-            user.uid,
-            {
-              'role': AppConstants.roleAdmin,
-              'roleStatus': AppConstants.roleStatusApproved,
-            },
-          );
-          // Reload user data with updated status
-          await _loadUserData();
-        }
-      }
-
-      // Check if user is suspended
-      if (_userModel!.isSuspended) {
-        await logout();
-        _setError('Your account has been suspended. Please contact support.');
-        return false;
-      }
-
       _setLoading(false);
       return true;
-    } on FirebaseAuthException catch (e) {
-      _setError(_firebaseService.getErrorMessage(e));
-      _setLoading(false);
-      return false;
     } catch (e) {
-      _setError('Login failed: ${e.toString()}');
+      _setError(e.toString());
       _setLoading(false);
       return false;
     }
   }
 
-  // ==================== LOGOUT ====================
-
-  /// Sign out
-  Future<void> logout() async {
-    _setLoading(true);
-
-    try {
-      await _firebaseService.signOut();
-      _userModel = null;
-      _firebaseUser = null;
-      _clearError();
-    } catch (e) {
-      _setError('Logout failed: ${e.toString()}');
-    }
-
-    _setLoading(false);
-    notifyListeners();
-  }
-
-  /// Sign out (Alias for logout used in UI)
-  Future<void> signOut() async => await logout();
-
-  // ==================== PASSWORD RESET ====================
-
-  /// Send password reset email
+  /// 📧 PASSWORD RESET
   Future<bool> sendPasswordResetEmail(String email) async {
     _setLoading(true);
     _clearError();
-
     try {
-      await _firebaseService.sendPasswordResetEmail(email);
+      await _authService.sendPasswordResetEmail(email);
       _setLoading(false);
       return true;
-    } on FirebaseAuthException catch (e) {
-      _setError(_firebaseService.getErrorMessage(e));
-      _setLoading(false);
-      return false;
     } catch (e) {
-      _setError('Failed to send reset email: ${e.toString()}');
+      _setError(e.toString());
       _setLoading(false);
       return false;
     }
   }
 
-  /// Change password
-  Future<bool> changePassword(String newPassword) async {
-    _setLoading(true);
-    _clearError();
-
-    try {
-      await _firebaseService.updatePassword(newPassword);
-      _setLoading(false);
-      return true;
-    } on FirebaseAuthException catch (e) {
-      _setError(_firebaseService.getErrorMessage(e));
-      _setLoading(false);
-      return false;
-    } catch (e) {
-      _setError('Failed to change password: ${e.toString()}');
-      _setLoading(false);
-      return false;
-    }
-  }
-
-  // ==================== EMAIL VERIFICATION ====================
-
-  /// Send email verification
+  /// 📧 EMAIL VERIFICATION
   Future<bool> sendEmailVerification() async {
     _setLoading(true);
     _clearError();
-
     try {
-      await _firebaseService.sendEmailVerification();
+      await _authService.sendEmailVerification();
       _setLoading(false);
       return true;
     } catch (e) {
-      _setError('Failed to send verification email: ${e.toString()}');
+      _setError(e.toString());
       _setLoading(false);
       return false;
     }
   }
 
-  /// Reload user to check email verification status
+  /// 🔄 RELOAD USER
   Future<void> reloadUser() async {
     try {
-      await _firebaseService.reloadUser();
-      _firebaseUser = _firebaseService.currentUser;
+      await _authService.reloadUser();
       notifyListeners();
     } catch (e) {
-      debugPrint('Error reloading user: $e');
+      debugPrint('Reload user error: $e');
     }
   }
 
-  // ==================== PROFILE UPDATES ====================
-
-  /// Update user profile
-  Future<bool> updateProfile({
-    String? name,
-    String? phone,
-    String? profileImageUrl,
-  }) async {
-    if (_userModel == null) return false;
-
-    _setLoading(true);
-    _clearError();
-
-    try {
-      final updates = <String, dynamic>{};
-
-      if (name != null) updates['name'] = name;
-      if (phone != null) updates['phone'] = phone;
-      if (profileImageUrl != null) updates['profileImageUrl'] = profileImageUrl;
-
-      await _firebaseService.updateCurrentUserDocument(updates);
-
-      // Update local user model
-      _userModel = _userModel!.copyWith(
-        name: name,
-        phone: phone,
-        profileImageUrl: profileImageUrl,
-        updatedAt: DateTime.now(),
-      );
-
-      _setLoading(false);
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _setError('Failed to update profile: ${e.toString()}');
-      _setLoading(false);
-      return false;
-    }
-  }
-
-  /// Update notification settings
-  Future<bool> updateNotificationSettings(bool enabled) async {
-    if (_userModel == null) return false;
-
-    try {
-      await _firebaseService.updateCurrentUserDocument({
-        'notificationsEnabled': enabled,
-      });
-
-      _userModel = _userModel!.copyWith(notificationsEnabled: enabled);
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _setError('Failed to update notification settings: ${e.toString()}');
-      return false;
-    }
-  }
-
-  // ==================== ROLE MANAGEMENT (ADMIN) ====================
-
-  /// Approve user role (admin only)
-  Future<bool> approveUserRole(String userId) async {
-    if (!isAdmin) {
-      _setError('Only admins can approve users');
-      return false;
-    }
-
-    try {
-      await _firebaseService.updateDocument(
-        AppConstants.usersCollection,
-        userId,
-        {'roleStatus': AppConstants.roleStatusApproved},
-      );
-      return true;
-    } catch (e) {
-      _setError('Failed to approve user: ${e.toString()}');
-      return false;
-    }
-  }
-
-  /// Reject user role (admin only)
-  Future<bool> rejectUserRole(String userId) async {
-    if (!isAdmin) {
-      _setError('Only admins can reject users');
-      return false;
-    }
-
-    try {
-      await _firebaseService.updateDocument(
-        AppConstants.usersCollection,
-        userId,
-        {'roleStatus': AppConstants.roleStatusRejected},
-      );
-      return true;
-    } catch (e) {
-      _setError('Failed to reject user: ${e.toString()}');
-      return false;
-    }
-  }
-
-  /// Suspend user (admin only)
-  Future<bool> suspendUser(String userId) async {
-    if (!isAdmin) {
-      _setError('Only admins can suspend users');
-      return false;
-    }
-
-    try {
-      await _firebaseService.updateDocument(
-        AppConstants.usersCollection,
-        userId,
-        {'roleStatus': AppConstants.roleStatusSuspended},
-      );
-      return true;
-    } catch (e) {
-      _setError('Failed to suspend user: ${e.toString()}');
-      return false;
-    }
-  }
-
-  // ==================== HELPERS ====================
-
-  /// Set loading state
-  void _setLoading(bool loading) {
-    _isLoading = loading;
+  /// 🚪 LOGOUT
+  Future<void> signOut() async {
+    await _authService.logout();
+    _userModel = null;
     notifyListeners();
   }
 
-  /// Set error message
-  void _setError(String message) {
-    _errorMessage = message;
-    debugPrint('AuthProvider Error: $message');
+  /// Alias for signOut for compatibility
+  Future<void> logout() async => await signOut();
+
+  void _setLoading(bool value) {
+    _isLoading = value;
     notifyListeners();
   }
 
-  /// Clear error message
+  void _setError(String msg) {
+    _errorMessage = msg.replaceAll('Exception: ', '');
+    notifyListeners();
+  }
+
   void _clearError() {
     _errorMessage = null;
-  }
-
-  /// Refresh user data
-  Future<void> refreshUserData() async {
-    await _loadUserData();
+    notifyListeners();
   }
 }

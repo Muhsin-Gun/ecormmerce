@@ -45,33 +45,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
     
-    // Validate role-specific rules if any
-    if (_selectedRole == AppConstants.roleAdmin) {
-      // In a real app, you might want to prevent direct admin registration
-      // or require a secret code. For this demo, we'll allow it with a warning.
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Admin Registration'),
-          content: const Text(
-            'Admin accounts require approval. Your account will be pending until approved by another admin.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Proceed'),
-            ),
-          ],
-        ),
-      );
-      
-      if (confirmed != true) return;
-    }
-
     FocusScope.of(context).unfocus();
     
     final authProvider = context.read<AuthProvider>();
@@ -84,30 +57,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
     
     if (success && mounted) {
-      // Navigate to email verification screen for all users
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const EmailVerificationScreen()),
+      // The AuthWrapper will automatically pick up the new auth state
+      // and show the appropriate screen (UserMain, Admin Dashboard, or Pending)
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Account created successfully!'),
+          backgroundColor: AppColors.success,
+        ),
       );
-      
-      if (_selectedRole != AppConstants.roleClient) {
-        // Show dialog about pending approval if they chose employee/admin
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Account Created'),
-            content: const Text(
-              'Your account is created and pending approval. Please verify your email first.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-      }
+      Navigator.of(context).pop(); // Go back to login/root
     } else if (mounted && authProvider.errorMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

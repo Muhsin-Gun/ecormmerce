@@ -55,6 +55,7 @@ class AppColors {
   static const Color darkSurface = Color(0xFF1A1F36);
   static const Color darkCard = Color(0xFF252D47);
   static const Color darkBackground = Color(0xFF121212); // Added darkBackground
+  static const Color background = darkBackground; // Added alias for compatibility
   
   // ==================== LIGHT THEME BACKGROUNDS ====================
   

@@ -66,8 +66,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
     
     if (success && mounted) {
-      // Navigation will be handled by the auth state listener in the root widget
-      // or we can navigate explicitly here if needed
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Welcome back!'),
