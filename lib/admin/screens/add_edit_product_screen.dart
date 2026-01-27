@@ -36,6 +36,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 
   String _selectedCategory = AppConstants.productCategories[0];
   bool _isOnSale = false;
+  bool _isActive = true;
 
   @override
   void initState() {
@@ -51,6 +52,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     if (p != null) {
       _selectedCategory = p.category;
       _isOnSale = p.isOnSale;
+      _isActive = p.isActive;
     }
   }
 
@@ -110,7 +112,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
           imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
           brand: brand,
           stock: stock,
-          isActive: true,
+          isActive: _isActive,
           isOnSale: _isOnSale,
           createdAt: DateTime.now(),
           images: imageUrl.isNotEmpty ? [imageUrl] : [],
@@ -126,6 +128,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
           category: _selectedCategory,
           brand: brand,
           stock: stock,
+          isActive: _isActive, // Use state variable
           isOnSale: _isOnSale,
           updatedAt: DateTime.now(),
         );
@@ -220,6 +223,14 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               const SizedBox(height: 16),
               const SizedBox(height: 16),
                
+              AuthTextField(
+                controller: _imageController,
+                labelText: 'Image URL',
+                prefixIcon: Icons.link,
+                onChanged: (_) => setState(() {}), // Refresh to show preview
+              ),
+              const SizedBox(height: 16),
+              
               // Image Picker
               GestureDetector(
                 onTap: _pickImage,
@@ -252,7 +263,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                               children: [
                                 Icon(Icons.add_a_photo, size: 40, color: Colors.grey),
                                 SizedBox(height: 8),
-                                Text('Tap to add image', style: TextStyle(color: Colors.grey)),
+                                Text('Tap to upload or paste URL above', style: TextStyle(color: Colors.grey)),
                               ],
                             )),
                 ),
@@ -280,6 +291,12 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 value: _isOnSale,
                 activeColor: AppColors.electricPurple,
                 onChanged: (val) => setState(() => _isOnSale = val),
+              ),
+              SwitchListTile(
+                title: const Text('Is Active (Visible in App)'),
+                value: _isActive,
+                activeColor: AppColors.success,
+                onChanged: (val) => setState(() => _isActive = val),
               ),
               const SizedBox(height: 32),
               AuthButton(

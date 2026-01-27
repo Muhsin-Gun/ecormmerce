@@ -23,6 +23,23 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           queryBuilder: (q) => q.orderBy('createdAt', descending: true),
         ),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                  const SizedBox(height: 16),
+                  Text('Error loading users: ${snapshot.error}'),
+                  TextButton(
+                    onPressed: () => setState(() {}),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -42,7 +59,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               final userId = users[index].id;
               final role = user['role'] ?? 'user';
               final roleStatus = user['roleStatus'] ?? AppConstants.roleStatusPending;
-              final isApproved = roleStatus == AppConstants.roleStatusApproved;
               final email = user['email'] ?? '';
               final name = user['name'] ?? 'Unknown';
 
@@ -50,11 +66,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 leading: CircleAvatar(
                   backgroundColor: _getRoleColor(role),
                   child: Text(
-                    name[0].toUpperCase(),
+                    name.isNotEmpty ? name[0].toUpperCase() : '?',
                     style: const TextStyle(color: Colors.white),
                   ),
                 ),
-                title: Text(name),
+                title: Text(name.isNotEmpty ? name : 'No Name'),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -63,37 +79,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: _getRoleColor(role).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            role.toUpperCase(),
-                            style: TextStyle(
-                              color: _getRoleColor(role),
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+                        _buildBadge(role.toUpperCase(), _getRoleColor(role)),
                         const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: _getStatusColor(roleStatus).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            roleStatus.toUpperCase(),
-                            style: TextStyle(
-                              color: _getStatusColor(roleStatus),
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+                        _buildBadge(roleStatus.toUpperCase(), _getStatusColor(roleStatus)),
                       ],
                     ),
                   ],
@@ -128,12 +116,35 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     );
   }
 
+  Widget _buildBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.5), width: 1),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
   Future<void> _updateUser(String userId, Map<String, dynamic> data) async {
     try {
       await FirebaseService.instance.updateDocument('users', userId, data);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User updated')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User updated')));
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
   }
 

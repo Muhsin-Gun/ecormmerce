@@ -48,9 +48,12 @@ class AdminReportsScreen extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection(AppConstants.usersCollection).snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) return const Center(child: Text('Error loading data'));
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         
         final users = snapshot.data!.docs;
+        if (users.isEmpty) return const Center(child: Text('No User Data'));
+
         int admins = 0;
         int employees = 0;
         int clients = 0;
@@ -88,9 +91,12 @@ class AdminReportsScreen extends StatelessWidget {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection(AppConstants.ordersCollection).snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) return const Center(child: Text('Error loading data'));
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         
         final orders = snapshot.data!.docs;
+        if (orders.isEmpty) return const Center(child: Text('No Order Data'));
+
         Map<String, int> counts = {};
         for (var doc in orders) {
           final data = doc.data() as Map<String, dynamic>;

@@ -13,6 +13,8 @@ import 'package:provider/provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'admin_approval_screen.dart';
 import 'audit_logs_screen.dart';
+import 'admin_reports_screen.dart';
+import '../../shared/services/data_seeder.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -199,33 +201,89 @@ class AdminDashboardScreen extends StatelessWidget {
                       title: 'Reports',
                       icon: Icons.bar_chart,
                       color: Colors.green,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminReportsScreen()));
+                      },
                     ),
                     _buildActionCard(
                       context,
-                      title: 'Seed Data',
-                      icon: Icons.data_saver_on,
+                      title: 'Populate Inventory',
+                      icon: Icons.cloud_download,
                       color: Colors.teal,
                       onTap: () async {
-                        showDialog(
+                        final confirm = await showDialog<bool>(
                           context: context,
-                          barrierDismissible: false,
-                          builder: (context) => const Center(child: CircularProgressIndicator()),
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Add Real Products'),
+                            content: const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('This will add REAL products (iPhones, Nikes, etc.) with real images to your store.'),
+                                SizedBox(height: 8),
+                                Text('✅ Ready for App Demo', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Add Products'),
+                              ),
+                            ],
+                          ),
                         );
+
+                        if (confirm != true) return;
+
+                        if (context.mounted) {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => const Center(
+                              child: Card(
+                                child: Padding(
+                                  padding: EdgeInsets.all(20),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircularProgressIndicator(),
+                                      SizedBox(height: 16),
+                                      Text('Seeding Data...'),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }
                         
                         try {
                           await DataSeeder.seedProducts();
-                          if (context.mounted) Navigator.pop(context);
+                          // Users and Orders seeding removed as per request to avoid fake data
+                          
+                          if (context.mounted) Navigator.pop(context); // Dismiss loading
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Sample data seeded successfully!')),
+                              const SnackBar(
+                                content: Text('Database seeded successfully!'),
+                                backgroundColor: AppColors.success,
+                              ),
                             );
+                            // Refresh stats
+                            (context as Element).markNeedsBuild();
                           }
                         } catch (e) {
-                          if (context.mounted) Navigator.pop(context);
+                          if (context.mounted) Navigator.pop(context); // Dismiss loading
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e')),
+                              SnackBar(
+                                content: Text('Error: $e'),
+                                backgroundColor: AppColors.error,
+                              ),
                             );
                           }
                         }

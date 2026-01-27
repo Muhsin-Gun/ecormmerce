@@ -41,8 +41,8 @@ class AuditLogsScreen extends StatelessWidget {
               final dateStr = timestamp != null ? DateFormat('MMM dd, HH:mm').format(timestamp) : 'Unknown';
 
               return Card(
-                color: AppColors.cardBackground,
-                margin: const EdgeInsets.bottom(12),
+                color: AppColors.darkCard,
+                margin: const EdgeInsets.only(bottom: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
                   leading: const CircleAvatar(

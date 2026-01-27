@@ -42,8 +42,8 @@ class AdminApprovalScreen extends StatelessWidget {
               final data = doc.data() as Map<String, dynamic>;
 
               return Card(
-                color: AppColors.cardBackground,
-                margin: const EdgeInsets.bottom(12),
+                color: AppColors.darkCard,
+                margin: const EdgeInsets.only(bottom: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
                   title: Text(data['email'] ?? 'No Email', style: const TextStyle(color: Colors.white)),
