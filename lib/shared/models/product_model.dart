@@ -63,6 +63,14 @@ class ProductModel extends Equatable {
   // Factory for Firestore
   factory ProductModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    
+    // Handle null timestamps from FieldValue.serverTimestamp() or legacy data
+    DateTime getTimestamp(dynamic timestamp) {
+      if (timestamp == null) return DateTime.now();
+      if (timestamp is Timestamp) return timestamp.toDate();
+      return DateTime.now();
+    }
+
     return ProductModel(
       productId: doc.id,
       name: data['name'] ?? '',
@@ -75,8 +83,8 @@ class ProductModel extends Equatable {
       isOnSale: data['isOnSale'] ?? false,
       salePrice: data['salePrice']?.toDouble(),
       isActive: data['isActive'] ?? true,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: data['updatedAt'] != null ? (data['updatedAt'] as Timestamp).toDate() : null,
+      createdAt: getTimestamp(data['createdAt']),
+      updatedAt: getTimestamp(data['updatedAt']),
       averageRating: (data['averageRating'] ?? 0).toDouble(),
       reviewCount: data['reviewCount'] ?? 0,
       images: List<String>.from(data['images'] ?? []),

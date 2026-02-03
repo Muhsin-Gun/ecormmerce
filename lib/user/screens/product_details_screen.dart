@@ -16,6 +16,7 @@ import '../../shared/providers/message_provider.dart';
 import '../../shared/providers/product_provider.dart';
 import '../../shared/providers/wishlist_provider.dart';
 import '../../shared/screens/chat_screen.dart';
+import '../../shared/services/firebase_service.dart';
 import '../../shared/widgets/auth_button.dart';
 import '../../shared/widgets/product_card.dart';
 
@@ -292,12 +293,34 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             }
 
                             try {
-                              // Start conversation with "Admin" (Support) since we don't have multi-vendor yet
-                              // In a real app, use widget.product.sellerId
+                              // Find Admin UID
+                              final snapshot = await context.read<FirebaseService>().searchDocuments(
+                                AppConstants.usersCollection,
+                                'email',
+                                AppConstants.superAdminEmail,
+                              );
+
+                              String otherUserId;
+                              String otherUserName = 'ProMarket Support';
+
+                              if (snapshot.docs.isNotEmpty) {
+                                otherUserId = snapshot.docs.first.id;
+                                // Optional: use real name
+                                // otherUserName = snapshot.docs.first['name']; 
+                              } else {
+                                // Fallback if admin doc missing (shouldn't happen with live fixes)
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Support is currently offline')),
+                                );
+                                return;
+                              }
+
+                              if (!context.mounted) return;
+
                               final conversationId = await context.read<MessageProvider>().startConversation(
                                 currentUserId: auth.firebaseUser!.uid,
-                                otherUserId: 'admin_support', // Fixed ID for now
-                                otherUserName: 'ProMarket Support',
+                                otherUserId: otherUserId,
+                                otherUserName: otherUserName,
                                 otherUserRole: 'admin',
                               );
 
@@ -307,15 +330,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                                   MaterialPageRoute(
                                     builder: (_) => ChatScreen(
                                       chatId: conversationId,
-                                      receiverName: 'ProMarket Support',
+                                      receiverName: otherUserName,
                                     ),
                                   ),
                                 );
                               }
                             } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Could not start chat')),
-                              );
+                              debugPrint('Chat Error: $e');
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Could not start chat')),
+                                );
+                              }
                             }
                           },
                           icon: const Icon(Icons.chat_bubble_outline),

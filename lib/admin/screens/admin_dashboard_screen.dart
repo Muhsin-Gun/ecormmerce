@@ -14,6 +14,7 @@ import '../../auth/providers/auth_provider.dart';
 import 'admin_approval_screen.dart';
 import 'audit_logs_screen.dart';
 import 'admin_reports_screen.dart';
+import '../../shared/screens/chat_list_screen.dart';
 import '../../shared/services/data_seeder.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
@@ -203,6 +204,15 @@ class AdminDashboardScreen extends StatelessWidget {
                       color: Colors.green,
                       onTap: () {
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminReportsScreen()));
+                      },
+                    ),
+                    _buildActionCard(
+                      context,
+                      title: 'Messages',
+                      icon: Icons.message_outlined,
+                      color: Colors.purple,
+                      onTap: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatListScreen()));
                       },
                     ),
                     _buildActionCard(

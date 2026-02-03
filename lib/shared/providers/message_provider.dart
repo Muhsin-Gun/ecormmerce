@@ -97,8 +97,22 @@ class MessageProvider extends ChangeNotifier {
     required String otherUserRole,
   }) async {
     try {
-      // Check if conversation already exists (this is a simplified check)
-      // In production, you might query specific fields or keep a composed ID
+      // Check if conversation already exists
+      final querySnapshot = await _firebaseService.getCollection(
+        AppConstants.conversationsCollection,
+        queryBuilder: (query) => query
+            .where('participants', arrayContains: currentUserId),
+      );
+
+      final duplicateDocs = querySnapshot.docs.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        final participants = List<String>.from(data['participants'] ?? []);
+        return participants.contains(otherUserId);
+      });
+
+      if (duplicateDocs.isNotEmpty) {
+        return duplicateDocs.first.id;
+      }
       
       final conversation = ConversationModel(
         id: '', // Will be set by Firestore

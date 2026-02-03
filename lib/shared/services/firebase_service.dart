@@ -185,8 +185,8 @@ class FirebaseService {
   ) async {
     try {
       // Add timestamps
-      data['createdAt'] = FieldValue.serverTimestamp();
-      data['updatedAt'] = FieldValue.serverTimestamp();
+      data['createdAt'] = Timestamp.fromDate(DateTime.now());
+      data['updatedAt'] = Timestamp.fromDate(DateTime.now());
       
       return await _firestore.collection(collection).add(data);
     } catch (e) {
@@ -205,9 +205,9 @@ class FirebaseService {
     try {
       // Add timestamps
       if (!data.containsKey('createdAt')) {
-        data['createdAt'] = FieldValue.serverTimestamp();
+        data['createdAt'] = Timestamp.fromDate(DateTime.now());
       }
-      data['updatedAt'] = FieldValue.serverTimestamp();
+      data['updatedAt'] = Timestamp.fromDate(DateTime.now());
       
       await _firestore.collection(collection).doc(docId).set(
             data,
@@ -227,7 +227,7 @@ class FirebaseService {
   ) async {
     try {
       // Add updated timestamp
-      data['updatedAt'] = FieldValue.serverTimestamp();
+      data['updatedAt'] = Timestamp.fromDate(DateTime.now());
       
       await _firestore.collection(collection).doc(docId).update(data);
     } catch (e) {
