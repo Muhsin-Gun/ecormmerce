@@ -70,5 +70,11 @@ service cloud.firestore {
     match /carts/{userId} {
       allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
+
+    // Transactions: Users can create their own, employees/admins can read
+    match /transactions/{transactionId} {
+      allow create: if isAuthenticated();
+      allow read: if isEmployee();
+    }
   }
 }

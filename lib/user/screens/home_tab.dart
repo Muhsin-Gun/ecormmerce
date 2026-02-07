@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -215,7 +216,7 @@ class _HomeTabState extends State<HomeTab> {
                   sliver: SliverGrid(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2, // Responsive: Use LayoutBuilder for web
-                      childAspectRatio: 0.7,
+                      childAspectRatio: 0.8,
                       crossAxisSpacing: AppTheme.spacingM,
                       mainAxisSpacing: AppTheme.spacingM,
                     ),
@@ -263,61 +264,69 @@ class _HomeTabState extends State<HomeTab> {
 
   Widget _buildFeaturedCard(BuildContext context, ProductModel product) {
     final hasImage = product.mainImage.isNotEmpty;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        color: hasImage ? null : Colors.grey.shade300,
-        image: hasImage
-            ? DecorationImage(
-                image: NetworkImage(product.mainImage),
-                fit: BoxFit.cover,
-              )
-            : null,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-          gradient: LinearGradient(
-            colors: [Colors.black.withOpacity(0.7), Colors.transparent],
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-          ),
-        ),
-        padding: const EdgeInsets.all(AppTheme.spacingM),
-        alignment: Alignment.bottomLeft,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (hasImage)
+            CachedNetworkImage(
+              imageUrl: product.mainImage,
+              fit: BoxFit.cover,
+              errorWidget: (_, __, ___) => Container(
+                color: Colors.grey.shade300,
+                child: const Center(child: Icon(Icons.broken_image_outlined)),
+              ),
+            )
+          else
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.electricPurple,
-                borderRadius: BorderRadius.circular(4),
+              color: Colors.grey.shade300,
+              child: const Center(child: Icon(Icons.broken_image_outlined)),
+            ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
               ),
-              child: const Text(
-                'FEATURED',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+            ),
+            padding: const EdgeInsets.all(AppTheme.spacingM),
+            alignment: Alignment.bottomLeft,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.electricPurple,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'FEATURED',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  product.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              product.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

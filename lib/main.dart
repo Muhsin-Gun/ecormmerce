@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 
 // Firebase Options
 import 'firebase_options.dart';
@@ -9,6 +10,7 @@ import 'firebase_options.dart';
 // Core & Services
 import 'core/theme/app_theme.dart';
 import 'core/services/notification_service.dart';
+import 'core/utils/app_error_reporter.dart';
 
 // Providers
 import 'shared/providers/theme_provider.dart';
@@ -29,6 +31,8 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  await AppErrorReporter.init();
+
   // Initialize Notifications
   try {
     if (!kIsWeb) {
@@ -38,7 +42,11 @@ void main() async {
     debugPrint('Notification init failed: $e');
   }
   
-  runApp(const ProMarketApp());
+  runZonedGuarded(() {
+    runApp(const ProMarketApp());
+  }, (error, stack) {
+    AppErrorReporter.report(error, stack);
+  });
 }
 
 class ProMarketApp extends StatelessWidget {
