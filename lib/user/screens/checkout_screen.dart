@@ -73,6 +73,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // simulate network delay for UX
       // Save order to Firestore
       final orderDoc = await FirebaseService.instance.addDocument('orders', orderData);
+      bool paymentInitiated = true;
 
       // Handle MPESA Payment Trigger
       // Handle MPESA Payment Trigger
@@ -86,6 +87,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
            );
            
            if (!mpesaResponse['success']) {
+             paymentInitiated = false;
              if (mounted) {
                ScaffoldMessenger.of(context).showSnackBar(
                  SnackBar(
@@ -98,6 +100,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
            }
          } catch (e) {
            debugPrint('MPESA Error: $e');
+           paymentInitiated = false;
            if (mounted) {
              ScaffoldMessenger.of(context).showSnackBar(
                SnackBar(
@@ -107,6 +110,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                ),
              );
            }
+         }
+
+         if (!paymentInitiated) {
+           await FirebaseService.instance.updateDocument('orders', orderDoc.id, {
+             'paymentStatus': 'failed',
+             'status': 'payment_failed',
+           });
+           return;
          }
       }
 

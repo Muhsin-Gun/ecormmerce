@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
@@ -54,22 +55,48 @@ class ProfileTab extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.white,
-                        backgroundImage: user.profileImageUrl != null
-                            ? NetworkImage(user.profileImageUrl!)
-                            : null,
-                        child: user.profileImageUrl == null
-                            ? Text(
-                                (user.name.isNotEmpty ? user.name[0] : 'U').toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primaryIndigo,
+                      ClipOval(
+                        child: SizedBox(
+                          width: 100,
+                          height: 100,
+                          child: user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: user.profileImageUrl!,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => Container(
+                                    color: Colors.white,
+                                    child: const Center(
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  ),
+                                  errorWidget: (context, url, error) => Container(
+                                    color: Colors.white,
+                                    child: Center(
+                                      child: Text(
+                                        (user.name.isNotEmpty ? user.name[0] : 'U').toUpperCase(),
+                                        style: const TextStyle(
+                                          fontSize: 40,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primaryIndigo,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : Container(
+                                  color: Colors.white,
+                                  child: Center(
+                                    child: Text(
+                                      (user.name.isNotEmpty ? user.name[0] : 'U').toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 40,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primaryIndigo,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              )
-                            : null,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/models/review_model.dart';
@@ -36,21 +37,44 @@ class ReviewCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundImage: review.userImage != null
-                    ? NetworkImage(review.userImage!)
-                    : null,
-                backgroundColor: AppColors.electricPurple.withOpacity(0.1),
-                child: review.userImage == null
-                    ? Text(
-                        review.userName.isNotEmpty ? review.userName[0].toUpperCase() : 'U',
-                        style: const TextStyle(
-                          color: AppColors.electricPurple,
-                          fontWeight: FontWeight.bold,
+              ClipOval(
+                child: SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: review.userImage != null && review.userImage!.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: review.userImage!,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: AppColors.electricPurple.withOpacity(0.1),
+                            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: AppColors.electricPurple.withOpacity(0.1),
+                            child: Center(
+                              child: Text(
+                                review.userName.isNotEmpty ? review.userName[0].toUpperCase() : 'U',
+                                style: const TextStyle(
+                                  color: AppColors.electricPurple,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      : Container(
+                          color: AppColors.electricPurple.withOpacity(0.1),
+                          child: Center(
+                            child: Text(
+                              review.userName.isNotEmpty ? review.userName[0].toUpperCase() : 'U',
+                              style: const TextStyle(
+                                color: AppColors.electricPurple,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                         ),
-                      )
-                    : null,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

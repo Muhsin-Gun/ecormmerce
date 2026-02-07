@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -235,7 +236,9 @@ class _HomeTabState extends State<HomeTab> {
                           },
                           onAddToCart: () {
                              context.read<CartProvider>().addItem(product);
-                             ScaffoldMessenger.of(context).showSnackBar(
+                             final messenger = ScaffoldMessenger.of(context);
+                             messenger.clearSnackBars();
+                             messenger.showSnackBar(
                                SnackBar(
                                  content: Text('${product.name} added to cart'),
                                  backgroundColor: AppColors.success,
@@ -264,51 +267,79 @@ class _HomeTabState extends State<HomeTab> {
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        image: DecorationImage(
-          image: NetworkImage(product.mainImage ?? ''),
-          fit: BoxFit.cover,
-        ),
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-          gradient: LinearGradient(
-            colors: [Colors.black.withOpacity(0.7), Colors.transparent],
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-          ),
-        ),
-        padding: const EdgeInsets.all(AppTheme.spacingM),
-        alignment: Alignment.bottomLeft,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.electricPurple,
-                borderRadius: BorderRadius.circular(4),
+            if (product.mainImage.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: product.mainImage,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  color: Colors.grey.shade200,
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  color: Colors.grey.shade300,
+                  child: const Center(
+                    child: Icon(Icons.broken_image_outlined),
+                  ),
+                ),
+              )
+            else
+              Container(
+                color: Colors.grey.shade300,
+                child: const Center(
+                  child: Icon(Icons.broken_image_outlined),
+                ),
               ),
-              child: const Text(
-                'FEATURED',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
                 ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              product.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+            Positioned(
+              left: AppTheme.spacingM,
+              right: AppTheme.spacingM,
+              bottom: AppTheme.spacingM,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.electricPurple,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'FEATURED',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    product.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

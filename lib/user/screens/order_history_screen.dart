@@ -21,7 +21,7 @@ class OrderHistoryScreen extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseService.instance.getCollectionStream(
           'orders',
-          queryBuilder: (q) => q.where('userId', isEqualTo: userId).orderBy('createdAt', descending: true),
+          queryBuilder: (q) => q.where('userId', isEqualTo: userId),
         ),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -46,7 +46,14 @@ class OrderHistoryScreen extends StatelessWidget {
             );
           }
 
-          final orders = snapshot.data!.docs;
+          final orders = snapshot.data!.docs.toList()
+            ..sort((a, b) {
+              final aData = a.data() as Map<String, dynamic>;
+              final bData = b.data() as Map<String, dynamic>;
+              final aDate = DateTime.tryParse(aData['createdAt'] ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+              final bDate = DateTime.tryParse(bData['createdAt'] ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+              return bDate.compareTo(aDate);
+            });
 
           return ListView.builder(
             padding: const EdgeInsets.all(AppTheme.spacingM),
@@ -110,6 +117,7 @@ class OrderHistoryScreen extends StatelessWidget {
                             child: TextButton.icon(
                               onPressed: () async {
                                 final pdfFile = await InvoiceGenerator.generateInvoice({...order, 'id': orderId});
+                                if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text('Invoice saved to ${pdfFile.path}'),
