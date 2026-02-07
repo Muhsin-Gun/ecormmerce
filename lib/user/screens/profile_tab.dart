@@ -5,6 +5,8 @@ import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/providers/theme_provider.dart';
+import '../../shared/providers/order_provider.dart';
+import '../../shared/providers/wishlist_provider.dart';
 import '../../shared/widgets/section_header.dart';
 import 'order_history_screen.dart';
 import 'wishlist_screen.dart';
@@ -18,6 +20,16 @@ class ProfileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Trigger data refresh when profile is viewed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = context.read<AuthProvider>().userModel;
+      if (user != null) {
+        context.read<OrderProvider>().loadUserOrders(user.userId);
+        // Wishlist is already loaded by main.dart proxy provider, but safe to refresh
+        context.read<WishlistProvider>().loadWishlist(); 
+      }
+    });
+
     final theme = Theme.of(context);
     final user = context.watch<AuthProvider>().userModel;
     
@@ -97,30 +109,38 @@ class ProfileTab extends StatelessWidget {
                   );
                 },
               ),
-               _buildSettingsTile(
-                context,
-                icon: Icons.shopping_bag_outlined,
-                title: 'My Orders',
-                subtitle: 'Track current and past orders',
-                onTap: () {
-                  Navigator.push(
+               Consumer<OrderProvider>(
+                 builder: (context, orderProvider, _) {
+                   return _buildSettingsTile(
                     context,
-                    MaterialPageRoute(builder: (_) => const OrderHistoryScreen()),
+                    icon: Icons.shopping_bag_outlined,
+                    title: 'My Orders',
+                    subtitle: '${orderProvider.orders.length} orders',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const OrderHistoryScreen()),
+                      );
+                    },
                   );
-                },
-              ),
-               _buildSettingsTile(
-                context,
-                icon: Icons.favorite_border,
-                title: 'Wishlist',
-                subtitle: 'Your saved products',
-                onTap: () {
-                  Navigator.push(
+                 }
+               ),
+               Consumer<WishlistProvider>(
+                 builder: (context, wishlistProvider, _) {
+                   return _buildSettingsTile(
                     context,
-                    MaterialPageRoute(builder: (_) => const WishlistScreen()),
+                    icon: Icons.favorite_border,
+                    title: 'Wishlist',
+                    subtitle: '${wishlistProvider.wishlistItems.length} items saved',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const WishlistScreen()),
+                      );
+                    },
                   );
-                },
-              ),
+                 }
+               ),
                _buildSettingsTile(
                 context,
                 icon: Icons.location_on_outlined,

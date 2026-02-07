@@ -3,13 +3,16 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import 'package:provider/provider.dart';
 import '../models/product_model.dart';
+import '../providers/wishlist_provider.dart';
 
 class ProductCard extends StatelessWidget {
   final ProductModel product;
   final VoidCallback onTap;
   final VoidCallback? onAddToCart;
   final bool isCompact;
+  final String? heroTagSuffix;
 
   const ProductCard({
     super.key,
@@ -17,6 +20,7 @@ class ProductCard extends StatelessWidget {
     required this.onTap,
     this.onAddToCart,
     this.isCompact = false,
+    this.heroTagSuffix,
   });
 
   @override
@@ -52,7 +56,7 @@ class ProductCard extends StatelessWidget {
                       top: Radius.circular(AppTheme.radiusMedium),
                     ),
                     child: Hero(
-                      tag: 'product_${product.productId}',
+                      tag: 'product_${product.productId}${heroTagSuffix ?? ''}',
                       child: CachedNetworkImage(
                         imageUrl: product.mainImage ?? '',
                         width: double.infinity,
@@ -100,26 +104,31 @@ class ProductCard extends StatelessWidget {
                   Positioned(
                     top: 8,
                     right: 8,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.3),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.favorite_border,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                        onPressed: () {
-                          // TODO: Toggle wishlist
-                        },
-                        constraints: const BoxConstraints(
-                          minWidth: 32,
-                          minHeight: 32,
-                        ),
-                        padding: EdgeInsets.zero,
-                      ),
+                    child: Consumer<WishlistProvider>(
+                      builder: (context, wishlistProvider, _) {
+                        final isInWishlist = wishlistProvider.isInWishlist(product.productId);
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.3),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            icon: Icon(
+                              isInWishlist ? Icons.favorite : Icons.favorite_border,
+                              color: isInWishlist ? AppColors.error : Colors.white,
+                              size: 18,
+                            ),
+                            onPressed: () {
+                              wishlistProvider.toggleWishlist(product);
+                            },
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                            padding: EdgeInsets.zero,
+                          ),
+                        );
+                      }
                     ),
                   ),
                 ],

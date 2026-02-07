@@ -48,6 +48,7 @@ class WishlistScreen extends StatelessWidget {
               final product = provider.wishlistItems[index];
               return ProductCard(
                 product: product,
+                heroTagSuffix: '_wishlist_$index',
                 onTap: () {
                   Navigator.push(
                     context,

@@ -29,7 +29,21 @@ class OrderHistoryScreen extends StatelessWidget {
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No orders found'));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.shopping_bag_outlined, size: 64, color: AppColors.gray400),
+                  const SizedBox(height: 16),
+                  const Text('No orders found', style: TextStyle(color: AppColors.gray500)),
+                  if (snapshot.hasError) ...[
+                     const SizedBox(height: 8),
+                     Text('Error: ${snapshot.error}', style: const TextStyle(color: AppColors.error, fontSize: 12), textAlign: TextAlign.center),
+                     TextButton(onPressed: () => (context as Element).markNeedsBuild(), child: const Text('Retry')),
+                  ]
+                ],
+              ),
+            );
           }
 
           final orders = snapshot.data!.docs;

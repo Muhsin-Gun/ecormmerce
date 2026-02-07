@@ -369,9 +369,13 @@ class AdminDashboardScreen extends StatelessWidget {
       final userCount = await FirebaseService.instance.countDocuments(AppConstants.usersCollection);
       final orderCount = await FirebaseService.instance.countDocuments(AppConstants.ordersCollection);
       
+      // Optimize: Limit to last 1000 orders to prevent crash
       final ordersSnapshot = await FirebaseService.instance.getCollection(
         AppConstants.ordersCollection,
-        queryBuilder: (q) => q.where('status', isNotEqualTo: AppConstants.orderStatusCancelled),
+        queryBuilder: (q) => q
+            .where('status', isNotEqualTo: AppConstants.orderStatusCancelled)
+            .orderBy('createdAt', descending: true)
+            .limit(1000),
       );
       
       double totalRevenue = 0;
@@ -387,8 +391,8 @@ class AdminDashboardScreen extends StatelessWidget {
         if (createdAtTimestamp != null) {
           final createdAt = createdAtTimestamp.toDate();
           final diff = now.difference(createdAt).inDays;
-          if (diff < 7) {
-            chartData[6 - diff] += amount / 1000;
+          if (diff >= 0 && diff < 7) {
+             chartData[6 - diff] += amount / 1000;
           }
         }
       }

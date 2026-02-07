@@ -20,7 +20,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseService.instance.getCollectionStream(
           'users',
-          queryBuilder: (q) => q.orderBy('createdAt', descending: true),
+          // removed orderBy to ensure all users show up even if createdAt is missing
         ),
         builder: (context, snapshot) {
           if (snapshot.hasError) {

@@ -93,11 +93,26 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       String? imageUrl = _imageController.text.trim();
       
       if (_pickedFile != null) {
-        final uploadedUrl = await CloudinaryService.uploadImage(_pickedFile!);
-        if (uploadedUrl != null) {
-          imageUrl = uploadedUrl;
-        } else {
-          throw Exception('Failed to upload image');
+        try {
+          final uploadedUrl = await CloudinaryService.uploadImage(_pickedFile!);
+          if (uploadedUrl != null) {
+            imageUrl = uploadedUrl;
+          } else {
+             throw Exception('Cloudinary upload returned null URL');
+          }
+        } catch (e) {
+           if (mounted) {
+             ScaffoldMessenger.of(context).showSnackBar(
+               SnackBar(
+                 content: Text('Image Upload Failed: $e'),
+                 backgroundColor: AppColors.error,
+                 duration: const Duration(seconds: 5),
+               ),
+             );
+           }
+           // Stop saving if image upload fails
+           setState(() => _isLoading = false);
+           return;
         }
       }
 

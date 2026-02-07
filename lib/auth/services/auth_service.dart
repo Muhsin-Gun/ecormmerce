@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../core/constants/app_constants.dart';
 import '../../core/constants/constants.dart';
 import '../models/user_model.dart';
 
@@ -20,7 +19,7 @@ class AuthService {
     final uid = cred.user!.uid;
 
     // 👑 ROOT ADMIN BYPASS
-    if (email.toLowerCase() == ROOT_ADMIN_EMAIL.toLowerCase()) {
+    if (email.toLowerCase() == AppConstants.superAdminEmail.toLowerCase()) {
       await _ensureRootAdmin(uid, email);
     }
 
@@ -51,7 +50,7 @@ class AuthService {
 
     final uid = cred.user!.uid;
 
-    final isRoot = email.toLowerCase() == ROOT_ADMIN_EMAIL.toLowerCase();
+    final isRoot = email.toLowerCase() == AppConstants.superAdminEmail.toLowerCase();
 
     // Create full user model
     final user = UserModel(

@@ -92,9 +92,15 @@ class ProMarketApp extends StatelessWidget {
           create: (_) => MessageProvider(),
         ),
 
-        // Wishlist Provider
-        ChangeNotifierProvider(
-          create: (_) => WishlistProvider()..loadWishlist(),
+        // Wishlist Provider - loads after user is authenticated
+        ChangeNotifierProxyProvider<AuthProvider, WishlistProvider>(
+          create: (_) => WishlistProvider(),
+          update: (_, auth, wishlist) {
+            if (auth.isAuthenticated) {
+              wishlist?.loadWishlist();
+            }
+            return wishlist ?? WishlistProvider();
+          },
         ),
       ],
       child: Consumer<ThemeProvider>(

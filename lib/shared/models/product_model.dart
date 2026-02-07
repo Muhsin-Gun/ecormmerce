@@ -62,32 +62,40 @@ class ProductModel extends Equatable {
 
   // Factory for Firestore
   factory ProductModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>? ?? {};
     
-    // Handle null timestamps from FieldValue.serverTimestamp() or legacy data
+    // Handle null timestamps
     DateTime getTimestamp(dynamic timestamp) {
       if (timestamp == null) return DateTime.now();
       if (timestamp is Timestamp) return timestamp.toDate();
+      if (timestamp is String) return DateTime.tryParse(timestamp) ?? DateTime.now();
       return DateTime.now();
+    }
+
+    // Safely get list
+    List<String> getImages(dynamic images) {
+      if (images == null) return [];
+      if (images is List) return images.map((e) => e.toString()).toList();
+      return [];
     }
 
     return ProductModel(
       productId: doc.id,
-      name: data['name'] ?? '',
-      description: data['description'] ?? '',
-      price: (data['price'] ?? 0).toDouble(),
-      stock: data['stock'] ?? 0,
-      category: data['category'] ?? '',
-      imageUrl: data['imageUrl'] ?? (data['images'] != null && (data['images'] as List).isNotEmpty ? data['images'][0] : null),
-      brand: data['brand'],
-      isOnSale: data['isOnSale'] ?? false,
-      salePrice: data['salePrice']?.toDouble(),
-      isActive: data['isActive'] ?? true,
+      name: data['name']?.toString() ?? 'Unknown Product',
+      description: data['description']?.toString() ?? '',
+      price: (data['price'] is num) ? (data['price'] as num).toDouble() : 0.0,
+      stock: (data['stock'] is int) ? data['stock'] as int : 0,
+      category: data['category']?.toString() ?? 'Uncategorized',
+      imageUrl: data['imageUrl']?.toString() ?? (data['images'] != null && (data['images'] as List).isNotEmpty ? data['images'][0]?.toString() : null),
+      brand: data['brand']?.toString(),
+      isOnSale: data['isOnSale'] == true,
+      salePrice: (data['salePrice'] is num) ? (data['salePrice'] as num).toDouble() : null,
+      isActive: data['isActive'] != false, // Default to true if missing
       createdAt: getTimestamp(data['createdAt']),
       updatedAt: getTimestamp(data['updatedAt']),
-      averageRating: (data['averageRating'] ?? 0).toDouble(),
-      reviewCount: data['reviewCount'] ?? 0,
-      images: List<String>.from(data['images'] ?? []),
+      averageRating: (data['averageRating'] is num) ? (data['averageRating'] as num).toDouble() : 0.0,
+      reviewCount: (data['reviewCount'] is int) ? data['reviewCount'] as int : 0,
+      images: getImages(data['images']),
     );
   }
 

@@ -125,9 +125,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     items: (widget.product.images.isEmpty 
                             ? [widget.product.mainImage ?? ''] 
                             : widget.product.images)
-                        .map((imageUrl) {
+                        .asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final imageUrl = entry.value;
                       return Hero(
-                        tag: 'product_${widget.product.productId}_$imageUrl',
+                        tag: 'product_image_${widget.product.productId}_$index',
                         child: CachedNetworkImage(
                           imageUrl: imageUrl,
                           fit: BoxFit.cover,
@@ -422,6 +424,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                                     margin: const EdgeInsets.only(right: AppTheme.spacingM),
                                     child: ProductCard(
                                       product: product,
+                                      heroTagSuffix: '_related_$index',
                                       onTap: () {
                                         Navigator.push(
                                           context,

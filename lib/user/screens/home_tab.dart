@@ -147,6 +147,7 @@ class _HomeTabState extends State<HomeTab> {
                                 padding: const EdgeInsets.only(right: AppTheme.spacingM),
                                 child: ProductCard(
                                   product: product,
+                                  heroTagSuffix: '_recent_$index',
                                   isCompact: true,
                                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(product: product))),
                                 ),
@@ -223,6 +224,7 @@ class _HomeTabState extends State<HomeTab> {
                         final product = provider.products[index];
                         return ProductCard(
                           product: product,
+                          heroTagSuffix: '_grid_$index',
                           onTap: () {
                             Navigator.push(
                               context,

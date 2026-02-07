@@ -191,6 +191,7 @@ class _SearchTabState extends State<SearchTab> {
                     itemBuilder: (context, index) {
                       return ProductCard(
                         product: provider.products[index],
+                        heroTagSuffix: '_search_$index',
                         onTap: () {
                           Navigator.push(
                             context,

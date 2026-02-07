@@ -48,8 +48,13 @@ class CartScreen extends StatelessWidget {
                   const SizedBox(height: AppTheme.spacingL),
                   OutlinedButton(
                     onPressed: () {
-                      // Navigate back to home/products
-                       Navigator.pop(context);
+                      // Navigate back to home/products safely
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      } else {
+                        // If cart was opened directly, go to first route (home)
+                        Navigator.of(context).popUntil((route) => route.isFirst);
+                      }
                     },
                     child: const Text('Start Shopping'),
                   ),

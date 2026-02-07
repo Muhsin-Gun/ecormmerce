@@ -37,7 +37,7 @@ class ReviewProvider extends ChangeNotifier {
         'userId': userId,
         'userName': userName,
         'rating': rating,
-        'comment': comment,
+        'review': comment,
         'createdAt': DateTime.now().toIso8601String(),
       });
       

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
-import '../../core/constants/app_constants.dart';
+import '../../core/constants/constants.dart';
 import '../../admin/screens/admin_dashboard_screen.dart';
 import '../../employee/screens/employee_dashboard_screen.dart';
 import '../../user/screens/user_main_screen.dart';
@@ -29,7 +29,7 @@ class AuthWrapper extends StatelessWidget {
         final email = user.email ?? '';
 
         // 🚨 SUPER ADMIN ALWAYS ENTERS
-        if (email.toLowerCase() == ROOT_ADMIN_EMAIL.toLowerCase()) {
+        if (email.toLowerCase() == AppConstants.superAdminEmail.toLowerCase()) {
           return const AdminDashboardScreen();
         }
 

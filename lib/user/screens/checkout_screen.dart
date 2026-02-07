@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -11,6 +12,7 @@ import '../../shared/widgets/auth_button.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/services/mpesa_service.dart';
 import 'order_success_screen.dart';
+import '../../shared/models/payment_model.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -73,6 +75,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final orderDoc = await FirebaseService.instance.addDocument('orders', orderData);
 
       // Handle MPESA Payment Trigger
+      // Handle MPESA Payment Trigger
       if (_selectedPaymentMethod == 'MPESA') {
          try {
            final mpesaResponse = await MpesaService.instance.initiateStkPush(
@@ -83,16 +86,45 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
            );
            
            if (!mpesaResponse['success']) {
-             // We still place the order but notify user about payment initiation failure
              if (mounted) {
                ScaffoldMessenger.of(context).showSnackBar(
-                 SnackBar(content: Text('Payment initiation failed: ${mpesaResponse['error']}')),
+                 SnackBar(
+                   content: Text('Payment initiation failed: ${mpesaResponse['error']}. Check API Keys.'),
+                   backgroundColor: AppColors.error,
+                   duration: const Duration(seconds: 5),
+                 ),
                );
              }
            }
          } catch (e) {
            debugPrint('MPESA Error: $e');
+           if (mounted) {
+             ScaffoldMessenger.of(context).showSnackBar(
+               SnackBar(
+                 content: Text('M-Pesa Error: $e. Check API Keys.'),
+                 backgroundColor: AppColors.error,
+                 duration: const Duration(seconds: 5),
+               ),
+             );
+           }
          }
+      }
+
+      // Create Pending Transaction Record
+      try {
+        await FirebaseService.instance.addDocument('transactions', {
+          'orderId': orderDoc.id,
+          'userId': user?.uid,
+          'amount': cart.total,
+          'method': _selectedPaymentMethod,
+          'status': 'pending', 
+          'createdAt': FieldValue.serverTimestamp(),
+          'mpesaPhoneNumber': _phoneController.text,
+          'mpesaReceiptNumber': null,
+          'mpesaTransactionId': null,
+        });
+      } catch (e) {
+         debugPrint('Error creating transaction record: $e');
       }
 
       // Clear Cart

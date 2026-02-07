@@ -53,5 +53,22 @@ service cloud.firestore {
         allow read, write: if isAuthenticated();
       }
     }
+
+    // Reviews: Anyone can read, authenticated users can write their own
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    // Wishlists: Users can only access their own wishlist
+    match /wishlists/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Carts: Users can only access their own cart
+    match /carts/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
   }
 }
