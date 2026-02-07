@@ -43,15 +43,21 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         widget.product.category,
         widget.product.productId,
       );
+      if (mounted) {
+        context.read<ProductProvider>().addToRecentlyViewed(widget.product.productId);
+      }
     });
   }
 
   void _addToCart() {
     context.read<CartProvider>().addItem(widget.product, quantity: _quantity);
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
       SnackBar(
         content: Text('${widget.product.name} added to cart'),
         backgroundColor: AppColors.success,
+        duration: const Duration(seconds: 2),
         action: SnackBarAction(
           label: 'VIEW CART',
           textColor: Colors.white,
@@ -67,14 +73,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Add to recently viewed when screen is opened
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ProductProvider>().addToRecentlyViewed(widget.product.productId);
-    });
-
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final size = MediaQuery.of(context).size;
+    final imageUrls = (widget.product.images.isEmpty
+            ? [widget.product.mainImage]
+            : widget.product.images)
+        .where((url) => url.isNotEmpty)
+        .toList();
 
     return Scaffold(
       body: CustomScrollView(
@@ -113,19 +119,29 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               background: Stack(
                 alignment: Alignment.bottomCenter,
                 children: [
-                   CarouselSlider(
+                  CarouselSlider(
                     options: CarouselOptions(
                       height: double.infinity,
                       viewportFraction: 1.0,
-                      enableInfiniteScroll: widget.product.images.isNotEmpty,
+                      enableInfiniteScroll: imageUrls.length > 1,
                       onPageChanged: (index, reason) {
                         setState(() => _currentImageIndex = index);
                       },
                     ),
-                    items: (widget.product.images.isEmpty 
-                            ? [widget.product.mainImage ?? ''] 
-                            : widget.product.images)
-                        .asMap().entries.map((entry) {
+                    items: imageUrls.isEmpty
+                        ? [
+                            Container(
+                              color: Colors.grey.shade200,
+                              child: const Center(
+                                child: Icon(
+                                  Icons.broken_image_outlined,
+                                  size: 48,
+                                  color: AppColors.gray500,
+                                ),
+                              ),
+                            ),
+                          ]
+                        : imageUrls.asMap().entries.map((entry) {
                       final index = entry.key;
                       final imageUrl = entry.value;
                       return Hero(
@@ -241,7 +257,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        if (widget.product.isOnSale) ...[
+                        if (widget.product.isOnSale &&
+                            widget.product.compareAtPrice != null &&
+                            widget.product.discountPercentage != null) ...[
                           const SizedBox(width: AppTheme.spacingM),
                           Text(
                             Formatters.formatCurrency(widget.product.compareAtPrice!),
