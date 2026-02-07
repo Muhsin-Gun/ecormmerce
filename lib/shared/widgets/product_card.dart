@@ -57,22 +57,29 @@ class ProductCard extends StatelessWidget {
                     ),
                     child: Hero(
                       tag: 'product_${product.productId}${heroTagSuffix ?? ''}',
-                      child: CachedNetworkImage(
-                        imageUrl: product.mainImage ?? '',
-                        width: double.infinity,
-                        height: double.infinity,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          color: isDark ? Colors.grey[800] : Colors.grey[200],
-                          child: const Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          color: isDark ? Colors.grey[800] : Colors.grey[200],
-                          child: const Icon(Icons.broken_image_outlined),
-                        ),
-                      ),
+                      child: product.mainImage.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: product.mainImage,
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(
+                                color: isDark ? Colors.grey[800] : Colors.grey[200],
+                                child: const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                color: isDark ? Colors.grey[800] : Colors.grey[200],
+                                child: const Icon(Icons.broken_image_outlined),
+                              ),
+                            )
+                          : Container(
+                              color: isDark ? Colors.grey[800] : Colors.grey[200],
+                              child: const Center(
+                                child: Icon(Icons.broken_image_outlined),
+                              ),
+                            ),
                     ),
                   ),
                   

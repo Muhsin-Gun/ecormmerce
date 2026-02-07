@@ -235,7 +235,9 @@ class _HomeTabState extends State<HomeTab> {
                           },
                           onAddToCart: () {
                              context.read<CartProvider>().addItem(product);
-                             ScaffoldMessenger.of(context).showSnackBar(
+                             final messenger = ScaffoldMessenger.of(context);
+                             messenger.clearSnackBars();
+                             messenger.showSnackBar(
                                SnackBar(
                                  content: Text('${product.name} added to cart'),
                                  backgroundColor: AppColors.success,
@@ -260,14 +262,18 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Widget _buildFeaturedCard(BuildContext context, ProductModel product) {
+    final hasImage = product.mainImage.isNotEmpty;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        image: DecorationImage(
-          image: NetworkImage(product.mainImage ?? ''),
-          fit: BoxFit.cover,
-        ),
+        color: hasImage ? null : Colors.grey.shade300,
+        image: hasImage
+            ? DecorationImage(
+                image: NetworkImage(product.mainImage),
+                fit: BoxFit.cover,
+              )
+            : null,
       ),
       child: Container(
         decoration: BoxDecoration(
