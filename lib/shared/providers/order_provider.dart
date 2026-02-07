@@ -34,16 +34,14 @@ class OrderProvider extends ChangeNotifier {
       final snapshot = await _firebaseService.getCollection(
         AppConstants.ordersCollection,
         queryBuilder: (query) {
-          return query
-              .where('userId', isEqualTo: userId)
-              .orderBy('createdAt', descending: true)
-              .limit(AppConstants.ordersPerPage);
+          return query.where('userId', isEqualTo: userId);
         },
       );
 
       _orders = snapshot.docs
           .map((doc) => OrderModel.fromFirestore(doc))
-          .toList();
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       _applyFilters();
     } catch (e) {
@@ -85,15 +83,14 @@ class OrderProvider extends ChangeNotifier {
       final snapshot = await _firebaseService.getCollection(
         AppConstants.ordersCollection,
         queryBuilder: (query) {
-          return query
-              .where('assignedToEmployeeId', isEqualTo: employeeId)
-              .orderBy('createdAt', descending: true);
+          return query.where('assignedToEmployeeId', isEqualTo: employeeId);
         },
       );
 
       _orders = snapshot.docs
           .map((doc) => OrderModel.fromFirestore(doc))
-          .toList();
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       _applyFilters();
     } catch (e) {

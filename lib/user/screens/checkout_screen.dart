@@ -13,6 +13,7 @@ import '../../shared/widgets/section_header.dart';
 import '../../shared/services/mpesa_service.dart';
 import 'order_success_screen.dart';
 import '../../shared/models/payment_model.dart';
+import '../../core/utils/app_error_reporter.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -53,11 +54,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     
     final cart = context.read<CartProvider>();
     final user = context.read<AuthProvider>().userModel;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please login before placing an order.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      setState(() => _isLoading = false);
+      return;
+    }
     
     // Create detailed order map
     final orderData = {
-      'userId': user?.uid,
-      'userName': user?.name,
+      'userId': user.uid,
+      'userName': user.name,
       'items': cart.items.map((i) => i.toMap()).toList(),
       'totalAmount': cart.total,
       'discount': cart.discountAmount,
@@ -86,27 +99,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
            );
            
            if (!mpesaResponse['success']) {
-             if (mounted) {
-               ScaffoldMessenger.of(context).showSnackBar(
-                 SnackBar(
-                   content: Text('Payment initiation failed: ${mpesaResponse['error']}. Check API Keys.'),
-                   backgroundColor: AppColors.error,
-                   duration: const Duration(seconds: 5),
-                 ),
-               );
-             }
-           }
-         } catch (e) {
-           debugPrint('MPESA Error: $e');
-           if (mounted) {
+             await FirebaseService.instance.updateDocument(
+               'orders',
+               orderDoc.id,
+               {'paymentStatus': 'failed'},
+             );
+             if (!mounted) return;
              ScaffoldMessenger.of(context).showSnackBar(
                SnackBar(
-                 content: Text('M-Pesa Error: $e. Check API Keys.'),
+                 content: Text('Payment initiation failed: ${mpesaResponse['error']}. Check API Keys.'),
                  backgroundColor: AppColors.error,
                  duration: const Duration(seconds: 5),
                ),
              );
+             return;
            }
+         } catch (e) {
+           debugPrint('MPESA Error: $e');
+           await AppErrorReporter.report(e, null);
+           await FirebaseService.instance.updateDocument(
+             'orders',
+             orderDoc.id,
+             {'paymentStatus': 'failed'},
+           );
+           if (!mounted) return;
+           ScaffoldMessenger.of(context).showSnackBar(
+             SnackBar(
+               content: Text('M-Pesa Error: $e. Check API Keys.'),
+               backgroundColor: AppColors.error,
+               duration: const Duration(seconds: 5),
+             ),
+           );
+           return;
          }
       }
 
@@ -114,7 +138,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       try {
         await FirebaseService.instance.addDocument('transactions', {
           'orderId': orderDoc.id,
-          'userId': user?.uid,
+          'userId': user.uid,
           'amount': cart.total,
           'method': _selectedPaymentMethod,
           'status': 'pending', 
@@ -125,6 +149,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         });
       } catch (e) {
          debugPrint('Error creating transaction record: $e');
+         await AppErrorReporter.report(e, null);
       }
 
       // Clear Cart
@@ -137,6 +162,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
       }
     } catch (e) {
+      await AppErrorReporter.report(e, null);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Order failed: $e'), backgroundColor: AppColors.error),
