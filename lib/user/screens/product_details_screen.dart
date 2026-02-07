@@ -158,12 +158,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   ),
                   
                   // Indicator
-                  if (widget.product.images.length > 1)
+                  if (imageUrls.length > 1)
                     Positioned(
                       bottom: 16,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: widget.product.images.asMap().entries.map((entry) {
+                        children: imageUrls.asMap().entries.map((entry) {
                           return Container(
                             width: 8.0,
                             height: 8.0,
