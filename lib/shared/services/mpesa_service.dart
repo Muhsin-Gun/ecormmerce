@@ -57,14 +57,14 @@ class MpesaService {
     required String accountReference, // e.g. Order ID
     required String transactionDesc,
   }) async {
-    // if (kIsWeb) {
-    //   return _initiateStkPushViaFunctions(
-    //     phoneNumber: phoneNumber,
-    //     amount: amount,
-    //     accountReference: accountReference,
-    //     transactionDesc: transactionDesc,
-    //   );
-    // }
+    if (kIsWeb) {
+      return _initiateStkPushViaFunctions(
+        phoneNumber: phoneNumber,
+        amount: amount,
+        accountReference: accountReference,
+        transactionDesc: transactionDesc,
+      );
+    }
 
     final token = await getAccessToken();
     if (token == null) {
@@ -170,17 +170,36 @@ class MpesaService {
     required String transactionDesc,
   }) async {
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('mpesaStkPush');
-      final response = await callable.call(<String, dynamic>{
-        'phoneNumber': phoneNumber,
-        'amount': amount,
-        'accountReference': accountReference,
-        'transactionDesc': transactionDesc,
-      });
-      final data = Map<String, dynamic>.from(response.data as Map);
-      return data;
+      // Direct call to local Node.js server
+      const String localServerUrl = 'http://localhost:3000/mpesaStkPush';
+      
+      final response = await http.post(
+        Uri.parse(localServerUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'phoneNumber': phoneNumber,
+          'amount': amount,
+          'accountReference': accountReference,
+          'transactionDesc': transactionDesc,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return {
+          'success': true,
+          'checkoutRequestID': data['CheckoutRequestID'],
+          'merchantRequestID': data['MerchantRequestID'],
+          'responseDescription': data['ResponseDescription'],
+        };
+      } else {
+        return {
+          'success': false,
+          'error': 'Local Server Error: ${response.statusCode}',
+        };
+      }
     } catch (e) {
-      debugPrint('MPESA Function Error: $e');
+      debugPrint('Local Server Error: $e');
       return {
         'success': false,
         'error': e.toString(),
