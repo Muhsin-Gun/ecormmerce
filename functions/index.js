@@ -3,6 +3,117 @@ const admin = require('firebase-admin');
 
 admin.initializeApp();
 
+const getMpesaConfig = () => {
+  const config = functions.config && functions.config().mpesa ? functions.config().mpesa : {};
+  return {
+    consumerKey: config.consumer_key || process.env.MPESA_CONSUMER_KEY,
+    consumerSecret: config.consumer_secret || process.env.MPESA_CONSUMER_SECRET,
+    shortCode: config.short_code || process.env.MPESA_SHORT_CODE,
+    passKey: config.pass_key || process.env.MPESA_PASS_KEY,
+    callbackUrl: config.callback_url || process.env.MPESA_CALLBACK_URL,
+    baseUrl: (config.env || process.env.MPESA_ENV) === 'production'
+      ? 'https://api.safaricom.co.ke'
+      : 'https://sandbox.safaricom.co.ke',
+  };
+};
+
+const normalizePhoneNumber = (phoneNumber) => {
+  let formattedPhone = String(phoneNumber || '').replace(/\s+/g, '').replace('+', '');
+  if (formattedPhone.startsWith('0')) {
+    formattedPhone = `254${formattedPhone.substring(1)}`;
+  }
+  return formattedPhone;
+};
+
+const getAccessToken = async (config) => {
+  const credentials = Buffer.from(`${config.consumerKey}:${config.consumerSecret}`).toString('base64');
+  const response = await fetch(
+    `${config.baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Basic ${credentials}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new functions.https.HttpsError('internal', `MPESA auth failed: ${errorBody}`);
+  }
+
+  const data = await response.json();
+  return data.access_token;
+};
+
+exports.mpesaStkPush = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required.');
+  }
+
+  const { phoneNumber, amount, accountReference, transactionDesc } = data || {};
+  if (!phoneNumber || !amount || !accountReference || !transactionDesc) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing STK push parameters.');
+  }
+
+  try {
+    const config = getMpesaConfig();
+    if (!config.consumerKey || !config.consumerSecret || !config.shortCode || !config.passKey || !config.callbackUrl) {
+      return { success: false, error: 'MPESA configuration is incomplete.' };
+    }
+
+    const token = await getAccessToken(config);
+    const timestamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
+    const password = Buffer.from(`${config.shortCode}${config.passKey}${timestamp}`).toString('base64');
+    const formattedPhone = normalizePhoneNumber(phoneNumber);
+
+    const payload = {
+      BusinessShortCode: config.shortCode,
+      Password: password,
+      Timestamp: timestamp,
+      TransactionType: 'CustomerPayBillOnline',
+      Amount: Math.round(Number(amount)),
+      PartyA: formattedPhone,
+      PartyB: config.shortCode,
+      PhoneNumber: formattedPhone,
+      CallBackURL: config.callbackUrl,
+      AccountReference: accountReference,
+      TransactionDesc: transactionDesc,
+    };
+
+    const response = await fetch(
+      `${config.baseUrl}/mpesa/stkpush/v1/processrequest`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      },
+    );
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: responseData.errorMessage || 'STK push failed.',
+      };
+    }
+
+    return {
+      success: true,
+      checkoutRequestID: responseData.CheckoutRequestID,
+      merchantRequestID: responseData.MerchantRequestID,
+      responseDescription: responseData.ResponseDescription,
+    };
+  } catch (error) {
+    functions.logger.error('MPESA STK push error', error);
+    return { success: false, error: 'MPESA request failed. Check server logs.' };
+  }
+});
+
 /**
  * Handle M-PESA Callbacks (Cloud Function)
  * Deployed to: /payment/mpesa/callback (via rewrite or direct URL)
@@ -50,7 +161,13 @@ exports.mpesaCallback = functions.https.onRequest(async (req, res) => {
         paymentStatus: 'completed',
         status: 'processing', // Move from Pending to Processing
         mpesaReceiptNumber: receipt,
-        mpesaTransactionDate: transactionDate,
+        mpesaTransactionDate: transactionDate
+          ? admin.firestore.Timestamp.fromDate(
+              new Date(
+                `${String(transactionDate).substring(0, 4)}-${String(transactionDate).substring(4, 6)}-${String(transactionDate).substring(6, 8)}T${String(transactionDate).substring(8, 10)}:${String(transactionDate).substring(10, 12)}:${String(transactionDate).substring(12, 14)}Z`,
+              ),
+            )
+          : null,
         mpesaPhoneNumber: phone,
         paidAmount: amount,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),

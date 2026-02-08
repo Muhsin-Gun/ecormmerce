@@ -26,7 +26,7 @@ class MessageProvider extends ChangeNotifier {
         .streamCollection(
           AppConstants.conversationsCollection,
           queryBuilder: (query) => query
-              .where('participantIds', arrayContains: userId)
+              .where('participants', arrayContains: userId)
               .orderBy('updatedAt', descending: true),
         )
         .map((snapshot) => snapshot.docs

@@ -39,6 +39,7 @@ class OrderProvider extends ChangeNotifier {
       );
 
       _orders = snapshot.docs
+          .where((doc) => doc.data() != null)
           .map((doc) => OrderModel.fromFirestore(doc))
           .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -64,6 +65,7 @@ class OrderProvider extends ChangeNotifier {
       );
 
       _orders = snapshot.docs
+          .where((doc) => doc.data() != null)
           .map((doc) => OrderModel.fromFirestore(doc))
           .toList();
 
@@ -88,6 +90,7 @@ class OrderProvider extends ChangeNotifier {
       );
 
       _orders = snapshot.docs
+          .where((doc) => doc.data() != null)
           .map((doc) => OrderModel.fromFirestore(doc))
           .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
