@@ -102,7 +102,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
              await FirebaseService.instance.updateDocument(
                'orders',
                orderDoc.id,
-               {'paymentStatus': 'failed'},
+               {
+                 'paymentStatus': 'failed',
+                 'updatedAt': DateTime.now().toIso8601String(),
+               },
              );
              if (!mounted) return;
              ScaffoldMessenger.of(context).showSnackBar(
@@ -114,6 +117,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
              );
              return;
            }
+
            await FirebaseService.instance.updateDocument(
              'orders',
              orderDoc.id,
@@ -122,6 +126,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                'mpesaCheckoutRequestId': mpesaResponse['checkoutRequestID'],
                'mpesaMerchantRequestId': mpesaResponse['merchantRequestID'],
                'mpesaPhoneNumber': _phoneController.text,
+               'updatedAt': DateTime.now().toIso8601String(),
              },
            );
          } catch (e) {
@@ -130,7 +135,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
            await FirebaseService.instance.updateDocument(
              'orders',
              orderDoc.id,
-             {'paymentStatus': 'failed'},
+             {
+               'paymentStatus': 'failed',
+               'updatedAt': DateTime.now().toIso8601String(),
+             },
            );
            if (!mounted) return;
            ScaffoldMessenger.of(context).showSnackBar(

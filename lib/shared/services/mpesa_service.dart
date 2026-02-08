@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import '../constants/secrets.dart';
+import '../../core/constants/secrets.dart';
 
 class MpesaService {
   static final MpesaService instance = MpesaService._();
@@ -41,7 +41,7 @@ class MpesaService {
         _tokenExpiry = DateTime.now().add(Duration(seconds: int.parse(expiresIn)));
         return _accessToken;
       } else {
-        debugPrint('MPESA Auth Failed: ${response.body}');
+        debugPrint('MPESA Auth Failed: [${response.statusCode}] ${response.body}');
         return null;
       }
     } catch (e) {
@@ -57,14 +57,14 @@ class MpesaService {
     required String accountReference, // e.g. Order ID
     required String transactionDesc,
   }) async {
-    if (kIsWeb) {
-      return _initiateStkPushViaFunctions(
-        phoneNumber: phoneNumber,
-        amount: amount,
-        accountReference: accountReference,
-        transactionDesc: transactionDesc,
-      );
-    }
+    // if (kIsWeb) {
+    //   return _initiateStkPushViaFunctions(
+    //     phoneNumber: phoneNumber,
+    //     amount: amount,
+    //     accountReference: accountReference,
+    //     transactionDesc: transactionDesc,
+    //   );
+    // }
 
     final token = await getAccessToken();
     if (token == null) {

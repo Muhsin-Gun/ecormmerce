@@ -85,21 +85,22 @@ class OrderModel extends Equatable {
   // ==================== FACTORY CONSTRUCTORS ====================
 
   factory OrderModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = (doc.data() as Map<String, dynamic>?) ?? {};
     
     return OrderModel(
       orderId: doc.id,
       userId: data['userId'] ?? '',
       userName: data['userName'],
       userPhone: data['userPhone'],
-      items: (data['items'] as List? ?? [])
+      items: (data['items'] as List?)
+          ?.where((item) => item != null)
           .map((item) => OrderItem.fromMap(item as Map<String, dynamic>))
-          .toList(),
+          .toList() ?? [],
       subtotal: (data['subtotal'] ?? 0).toDouble(),
       discount: data['discount']?.toDouble(),
       deliveryFee: data['deliveryFee']?.toDouble(),
       total: (data['total'] ?? 0).toDouble(),
-      deliveryAddress: AddressData.fromMap(data['deliveryAddress'] as Map<String, dynamic>),
+      deliveryAddress: AddressData.fromMap((data['deliveryAddress'] as Map<String, dynamic>?) ?? {}),
       status: data['status'] ?? AppConstants.orderStatusPending,
       paymentStatus: data['paymentStatus'] ?? AppConstants.paymentStatusPending,
       paymentMethod: data['paymentMethod'] ?? AppConstants.paymentMethodMpesa,

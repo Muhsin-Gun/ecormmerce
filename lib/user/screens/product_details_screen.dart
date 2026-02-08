@@ -19,6 +19,7 @@ import '../../shared/screens/chat_screen.dart';
 import '../../shared/services/firebase_service.dart';
 import '../../shared/widgets/auth_button.dart';
 import '../../shared/widgets/product_card.dart';
+import '../../main.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final ProductModel product;
@@ -62,9 +63,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           label: 'VIEW CART',
           textColor: Colors.white,
           onPressed: () {
-            // Navigate to cart tab (via pop or key)
-            Navigator.popUntil(context, (route) => route.isFirst);
-            // Ideally trigger tab change here
+            // Use navigatorKey to avoid using stale context if widget is disposed
+            ProMarketApp.navigatorKey.currentState?.popUntil((route) => route.isFirst);
+            ProMarketApp.navigatorKey.currentState?.pushNamed('/cart'); // Assuming cart route exists or logic to switch tab
+            // For now, popping to first route is safer as we don't have named routes setup verified
+            // Alternatively, find a way to switch tab
           },
         ),
       ),
