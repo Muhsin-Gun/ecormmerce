@@ -23,26 +23,26 @@ import 'shared/providers/message_provider.dart';
 import 'shared/providers/wishlist_provider.dart';
 import 'auth/widgets/auth_wrapper.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+void main() {
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  await AppErrorReporter.init();
+    // Initialize Firebase
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
 
-  // Initialize Notifications
-  try {
-    if (!kIsWeb) {
-      await NotificationService.init();
+    await AppErrorReporter.init();
+
+    // Initialize Notifications
+    try {
+      if (!kIsWeb) {
+        await NotificationService.init();
+      }
+    } catch (e) {
+      debugPrint('Notification init failed: $e');
     }
-  } catch (e) {
-    debugPrint('Notification init failed: $e');
-  }
-  
-  runZonedGuarded(() {
+
     runApp(const ProMarketApp());
   }, (error, stack) {
     AppErrorReporter.report(error, stack);

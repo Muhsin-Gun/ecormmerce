@@ -105,9 +105,7 @@ class OrderModel extends Equatable {
       paymentMethod: data['paymentMethod'] ?? AppConstants.paymentMethodMpesa,
       mpesaReceiptNumber: data['mpesaReceiptNumber'],
       mpesaTransactionId: data['mpesaTransactionId'],
-      mpesaTransactionDate: data['mpesaTransactionDate'] != null
-          ? (data['mpesaTransactionDate'] as Timestamp).toDate()
-          : null,
+      mpesaTransactionDate: _parseMpesaDate(data['mpesaTransactionDate']),
       couponCode: data['couponCode'],
       assignedToEmployeeId: data['assignedToEmployeeId'],
       assignedToEmployeeName: data['assignedToEmployeeName'],
@@ -148,9 +146,7 @@ class OrderModel extends Equatable {
       paymentMethod: map['paymentMethod'] ?? AppConstants.paymentMethodMpesa,
       mpesaReceiptNumber: map['mpesaReceiptNumber'],
       mpesaTransactionId: map['mpesaTransactionId'],
-      mpesaTransactionDate: map['mpesaTransactionDate'] != null
-          ? DateTime.parse(map['mpesaTransactionDate'])
-          : null,
+      mpesaTransactionDate: _parseMpesaDate(map['mpesaTransactionDate']),
       couponCode: map['couponCode'],
       assignedToEmployeeId: map['assignedToEmployeeId'],
       assignedToEmployeeName: map['assignedToEmployeeName'],
@@ -321,6 +317,36 @@ class OrderModel extends Equatable {
         refundReason,
         refundedAt,
       ];
+
+  static DateTime? _parseMpesaDate(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is int) {
+      final valueString = value.toString();
+      if (valueString.length == 14) {
+        return DateTime.tryParse(
+          '${valueString.substring(0, 4)}-${valueString.substring(4, 6)}-${valueString.substring(6, 8)}T${valueString.substring(8, 10)}:${valueString.substring(10, 12)}:${valueString.substring(12, 14)}Z',
+        );
+      }
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) {
+        return parsed;
+      }
+      if (value.length == 14) {
+        return DateTime.tryParse(
+          '${value.substring(0, 4)}-${value.substring(4, 6)}-${value.substring(6, 8)}T${value.substring(8, 10)}:${value.substring(10, 12)}:${value.substring(12, 14)}Z',
+        );
+      }
+    }
+    return null;
+  }
 }
 
 /// Order item (product in an order)

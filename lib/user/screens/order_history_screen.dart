@@ -52,10 +52,14 @@ class OrderHistoryScreen extends StatelessWidget {
             padding: const EdgeInsets.all(AppTheme.spacingM),
             itemCount: orders.length,
             itemBuilder: (context, index) {
-              final order = orders[index].data() as Map<String, dynamic>;
+              final orderData = orders[index].data();
+              if (orderData == null) {
+                return const SizedBox.shrink();
+              }
+              final order = orderData as Map<String, dynamic>;
               final status = order['status'] ?? 'pending';
               final total = (order['totalAmount'] ?? 0.0).toDouble();
-              final date = DateTime.tryParse(order['createdAt'] ?? '') ?? DateTime.now();
+              final date = _parseDate(order['createdAt']);
               final items = (order['items'] as List?) ?? [];
               final orderId = orders[index].id;
 
@@ -147,5 +151,18 @@ class OrderHistoryScreen extends StatelessWidget {
       default:
         return AppColors.warning;
     }
+  }
+
+  DateTime _parseDate(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is String) {
+      return DateTime.tryParse(value) ?? DateTime.now();
+    }
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+    return DateTime.now();
   }
 }
