@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../constants/secrets.dart';
 
 class MpesaService {
@@ -55,6 +57,15 @@ class MpesaService {
     required String accountReference, // e.g. Order ID
     required String transactionDesc,
   }) async {
+    if (kIsWeb) {
+      return _initiateStkPushViaFunctions(
+        phoneNumber: phoneNumber,
+        amount: amount,
+        accountReference: accountReference,
+        transactionDesc: transactionDesc,
+      );
+    }
+
     final token = await getAccessToken();
     if (token == null) {
       throw Exception('Failed to get access token');
@@ -149,6 +160,31 @@ class MpesaService {
       return json.decode(response.body);
     } catch (e) {
       return {'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> _initiateStkPushViaFunctions({
+    required String phoneNumber,
+    required double amount,
+    required String accountReference,
+    required String transactionDesc,
+  }) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('mpesaStkPush');
+      final response = await callable.call(<String, dynamic>{
+        'phoneNumber': phoneNumber,
+        'amount': amount,
+        'accountReference': accountReference,
+        'transactionDesc': transactionDesc,
+      });
+      final data = Map<String, dynamic>.from(response.data as Map);
+      return data;
+    } catch (e) {
+      debugPrint('MPESA Function Error: $e');
+      return {
+        'success': false,
+        'error': e.toString(),
+      };
     }
   }
 }

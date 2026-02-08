@@ -114,6 +114,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
              );
              return;
            }
+           await FirebaseService.instance.updateDocument(
+             'orders',
+             orderDoc.id,
+             {
+               'paymentStatus': 'processing',
+               'mpesaCheckoutRequestId': mpesaResponse['checkoutRequestID'],
+               'mpesaMerchantRequestId': mpesaResponse['merchantRequestID'],
+               'mpesaPhoneNumber': _phoneController.text,
+             },
+           );
          } catch (e) {
            debugPrint('MPESA Error: $e');
            await AppErrorReporter.report(e, null);
