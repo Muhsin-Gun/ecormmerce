@@ -91,9 +91,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppTheme.spacingL),
-          child: formContent(theme, isDark),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppTheme.spacingL),
+              child: formContent(theme, isDark),
+            ),
+          ),
         ),
       ),
     );

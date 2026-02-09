@@ -71,15 +71,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final orderData = {
       'userId': user.uid,
       'userName': user.name,
+      'userPhone': _phoneController.text,
       'items': cart.items.map((i) => i.toMap()).toList(),
-      'totalAmount': cart.total,
+      'total': cart.total,
+      'subtotal': cart.subtotal,
       'discount': cart.discountAmount,
-      'status': 'pending', // pending, processing, shipped, delivered, cancelled
+      'status': 'pending', 
       'paymentMethod': _selectedPaymentMethod,
       'paymentStatus': 'pending',
-      'shippingAddress': _addressController.text,
-      'phoneNumber': _phoneController.text,
-      'createdAt': DateTime.now().toIso8601String(),
+      'deliveryAddress': {
+        'street': _addressController.text,
+        'city': '',
+        'label': 'Delivery',
+      },
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     };
 
     try {
@@ -199,13 +205,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppTheme.spacingL),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppTheme.spacingL),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
               // 1. Delivery Details
               const SectionHeader(title: 'Delivery Details'),
               Container(
@@ -290,7 +299,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 onPressed: _placeOrder,
                 isLoading: _isLoading,
               ),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
       ),

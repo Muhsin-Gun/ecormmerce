@@ -69,32 +69,37 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Edit Profile')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppTheme.spacingL),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              AuthTextField(
-                controller: _nameController,
-                labelText: 'Full Name',
-                prefixIcon: Icons.person_outline,
-                validator: (v) => v!.isEmpty ? 'Required' : null,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppTheme.spacingL),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  AuthTextField(
+                    controller: _nameController,
+                    labelText: 'Full Name',
+                    prefixIcon: Icons.person_outline,
+                    validator: (v) => v!.isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: AppTheme.spacingM),
+                  AuthTextField(
+                    controller: _phoneController,
+                    labelText: 'Phone Number',
+                    prefixIcon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: AppTheme.spacingXL),
+                  AuthButton(
+                    text: 'Save Changes',
+                    onPressed: _saveProfile,
+                    isLoading: _isLoading,
+                  ),
+                ],
               ),
-              const SizedBox(height: AppTheme.spacingM),
-              AuthTextField(
-                controller: _phoneController,
-                labelText: 'Phone Number',
-                prefixIcon: Icons.phone_outlined,
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: AppTheme.spacingXL),
-              AuthButton(
-                text: 'Save Changes',
-                onPressed: _saveProfile,
-                isLoading: _isLoading,
-              ),
-            ],
+            ),
           ),
         ),
       ),

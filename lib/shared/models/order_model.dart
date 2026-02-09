@@ -90,17 +90,18 @@ class OrderModel extends Equatable {
     return OrderModel(
       orderId: doc.id,
       userId: data['userId'] ?? '',
-      userName: data['userName'],
-      userPhone: data['userPhone'],
+      userName: data['userName'] ?? '',
+      userPhone: data['userPhone'] ?? data['phoneNumber'] ?? '',
       items: (data['items'] as List?)
-          ?.where((item) => item != null)
-          .map((item) => OrderItem.fromMap(item as Map<String, dynamic>))
-          .toList() ?? [],
-      subtotal: (data['subtotal'] ?? 0).toDouble(),
-      discount: data['discount']?.toDouble(),
-      deliveryFee: data['deliveryFee']?.toDouble(),
-      total: (data['total'] ?? 0).toDouble(),
-      deliveryAddress: AddressData.fromMap((data['deliveryAddress'] as Map<String, dynamic>?) ?? {}),
+              ?.where((item) => item != null)
+              .map((item) => OrderItem.fromMap(item as Map<String, dynamic>))
+              .toList() ??
+          [],
+      subtotal: (data['subtotal'] ?? data['totalAmount'] ?? 0).toDouble(),
+      discount: (data['discount'] ?? 0).toDouble(),
+      deliveryFee: (data['deliveryFee'] ?? 0).toDouble(),
+      total: (data['total'] ?? data['totalAmount'] ?? 0).toDouble(),
+      deliveryAddress: _parseAddress(data['deliveryAddress'] ?? data['shippingAddress']),
       status: data['status'] ?? AppConstants.orderStatusPending,
       paymentStatus: data['paymentStatus'] ?? AppConstants.paymentStatusPending,
       paymentMethod: data['paymentMethod'] ?? AppConstants.paymentMethodMpesa,
@@ -110,21 +111,15 @@ class OrderModel extends Equatable {
       couponCode: data['couponCode'],
       assignedToEmployeeId: data['assignedToEmployeeId'],
       assignedToEmployeeName: data['assignedToEmployeeName'],
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      deliveredAt: data['deliveredAt'] != null
-          ? (data['deliveredAt'] as Timestamp).toDate()
-          : null,
-      cancelledAt: data['cancelledAt'] != null
-          ? (data['cancelledAt'] as Timestamp).toDate()
-          : null,
+      createdAt: _parseMpesaDate(data['createdAt']) ?? DateTime.now(),
+      updatedAt: _parseMpesaDate(data['updatedAt']) ?? DateTime.now(),
+      deliveredAt: _parseMpesaDate(data['deliveredAt']),
+      cancelledAt: _parseMpesaDate(data['cancelledAt']),
       customerNote: data['customerNote'],
       adminNote: data['adminNote'],
-      refundAmount: data['refundAmount']?.toDouble(),
+      refundAmount: (data['refundAmount'] ?? 0).toDouble(),
       refundReason: data['refundReason'],
-      refundedAt: data['refundedAt'] != null
-          ? (data['refundedAt'] as Timestamp).toDate()
-          : null,
+      refundedAt: _parseMpesaDate(data['refundedAt']),
     );
   }
 
@@ -132,16 +127,18 @@ class OrderModel extends Equatable {
     return OrderModel(
       orderId: map['orderId'] ?? '',
       userId: map['userId'] ?? '',
-      userName: map['userName'],
-      userPhone: map['userPhone'],
-      items: (map['items'] as List? ?? [])
-          .map((item) => OrderItem.fromMap(item as Map<String, dynamic>))
-          .toList(),
-      subtotal: (map['subtotal'] ?? 0).toDouble(),
-      discount: map['discount']?.toDouble(),
-      deliveryFee: map['deliveryFee']?.toDouble(),
-      total: (map['total'] ?? 0).toDouble(),
-      deliveryAddress: AddressData.fromMap(map['deliveryAddress'] as Map<String, dynamic>),
+      userName: map['userName'] ?? '',
+      userPhone: map['userPhone'] ?? map['phoneNumber'] ?? '',
+      items: (map['items'] as List?)
+              ?.where((item) => item != null)
+              .map((item) => OrderItem.fromMap(item as Map<String, dynamic>))
+              .toList() ??
+          [],
+      subtotal: (map['subtotal'] ?? map['totalAmount'] ?? 0).toDouble(),
+      discount: (map['discount'] ?? 0).toDouble(),
+      deliveryFee: (map['deliveryFee'] ?? 0).toDouble(),
+      total: (map['total'] ?? map['totalAmount'] ?? 0).toDouble(),
+      deliveryAddress: _parseAddress(map['deliveryAddress'] ?? map['shippingAddress']),
       status: map['status'] ?? AppConstants.orderStatusPending,
       paymentStatus: map['paymentStatus'] ?? AppConstants.paymentStatusPending,
       paymentMethod: map['paymentMethod'] ?? AppConstants.paymentMethodMpesa,
@@ -151,21 +148,15 @@ class OrderModel extends Equatable {
       couponCode: map['couponCode'],
       assignedToEmployeeId: map['assignedToEmployeeId'],
       assignedToEmployeeName: map['assignedToEmployeeName'],
-      createdAt: DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
-      updatedAt: DateTime.parse(map['updatedAt'] ?? DateTime.now().toIso8601String()),
-      deliveredAt: map['deliveredAt'] != null
-          ? DateTime.parse(map['deliveredAt'])
-          : null,
-      cancelledAt: map['cancelledAt'] != null
-          ? DateTime.parse(map['cancelledAt'])
-          : null,
+      createdAt: _parseMpesaDate(map['createdAt']) ?? DateTime.now(),
+      updatedAt: _parseMpesaDate(map['updatedAt']) ?? DateTime.now(),
+      deliveredAt: _parseMpesaDate(map['deliveredAt']),
+      cancelledAt: _parseMpesaDate(map['cancelledAt']),
       customerNote: map['customerNote'],
       adminNote: map['adminNote'],
-      refundAmount: map['refundAmount']?.toDouble(),
+      refundAmount: (map['refundAmount'] ?? 0).toDouble(),
       refundReason: map['refundReason'],
-      refundedAt: map['refundedAt'] != null
-          ? DateTime.parse(map['refundedAt'])
-          : null,
+      refundedAt: _parseMpesaDate(map['refundedAt']),
     );
   }
 
@@ -347,6 +338,27 @@ class OrderModel extends Equatable {
       }
     }
     return null;
+  }
+  static AddressData _parseAddress(dynamic value) {
+    if (value is Map) {
+      return AddressData.fromMap(Map<String, dynamic>.from(value));
+    }
+    if (value is String) {
+      return AddressData(
+        id: '',
+        label: 'Delivery',
+        street: value,
+        city: '',
+        postalCode: '',
+      );
+    }
+    return const AddressData(
+      id: '',
+      label: '',
+      street: '',
+      city: '',
+      postalCode: '',
+    );
   }
 }
 

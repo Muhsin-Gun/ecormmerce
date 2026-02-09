@@ -101,142 +101,145 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         ) : null,
         child: SafeArea(
           child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppTheme.spacingL),
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Logo
-                      Container(
-                        padding: const EdgeInsets.all(AppTheme.spacingM),
-                        decoration: BoxDecoration(
-                          color: AppColors.electricPurple.withOpacity(0.1),
-                          shape: BoxShape.circle,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 500),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppTheme.spacingL),
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Logo
+                        Container(
+                          padding: const EdgeInsets.all(AppTheme.spacingM),
+                          decoration: BoxDecoration(
+                            color: AppColors.electricPurple.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.shopping_bag_outlined,
+                            size: 64,
+                            color: AppColors.electricPurple,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.shopping_bag_outlined,
-                          size: 64,
-                          color: AppColors.electricPurple,
+                        const SizedBox(height: AppTheme.spacingL),
+                        
+                        // Welcome Text
+                        Text(
+                          'Welcome Back',
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: AppTheme.spacingL),
-                      
-                      // Welcome Text
-                      Text(
-                        'Welcome Back',
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+                        const SizedBox(height: AppTheme.spacingS),
+                        Text(
+                          'Sign in to your account',
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: isDark ? AppColors.gray400 : AppColors.gray600,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: AppTheme.spacingS),
-                      Text(
-                        'Sign in to your account',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: isDark ? AppColors.gray400 : AppColors.gray600,
-                        ),
-                      ),
-                      const SizedBox(height: AppTheme.spacingXL),
-                      
-                      // Form
-                      Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
-                            AuthTextField(
-                              controller: _emailController,
-                              labelText: 'Email',
-                              hintText: 'Enter your email',
-                              prefixIcon: Icons.email_outlined,
-                              keyboardType: TextInputType.emailAddress,
-                              validator: Validators.validateEmail,
-                            ),
-                            const SizedBox(height: AppTheme.spacingM),
-                            AuthTextField(
-                              controller: _passwordController,
-                              labelText: 'Password',
-                              hintText: 'Enter your password',
-                              prefixIcon: Icons.lock_outlined,
-                              obscureText: true,
-                              textInputAction: TextInputAction.done,
-                              validator: (value) => Validators.validateRequired(
-                                value, 
-                                fieldName: 'Password'
+                        const SizedBox(height: AppTheme.spacingXL),
+                        
+                        // Form
+                        Form(
+                          key: _formKey,
+                          child: Column(
+                            children: [
+                              AuthTextField(
+                                controller: _emailController,
+                                labelText: 'Email',
+                                hintText: 'Enter your email',
+                                prefixIcon: Icons.email_outlined,
+                                keyboardType: TextInputType.emailAddress,
+                                validator: Validators.validateEmail,
                               ),
-                              onFieldSubmitted: (_) => _login(),
-                            ),
-                            
-                            // Forgot Password
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const ForgotPasswordScreen(),
-                                    ),
+                              const SizedBox(height: AppTheme.spacingM),
+                              AuthTextField(
+                                controller: _passwordController,
+                                labelText: 'Password',
+                                hintText: 'Enter your password',
+                                prefixIcon: Icons.lock_outlined,
+                                obscureText: true,
+                                textInputAction: TextInputAction.done,
+                                validator: (value) => Validators.validateRequired(
+                                  value, 
+                                  fieldName: 'Password'
+                                ),
+                                onFieldSubmitted: (_) => _login(),
+                              ),
+                              
+                              // Forgot Password
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const ForgotPasswordScreen(),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text('Forgot Password?'),
+                                ),
+                              ),
+                              
+                              const SizedBox(height: AppTheme.spacingL),
+                              
+                              // Login Button
+                              Consumer<AuthProvider>(
+                                builder: (context, auth, _) {
+                                  return Column(
+                                    children: [
+                                      AuthButton(
+                                        text: 'Sign In',
+                                        onPressed: _login,
+                                        isLoading: auth.isLoading,
+                                      ),
+                                    ],
                                   );
                                 },
-                                child: const Text('Forgot Password?'),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: AppTheme.spacingXL),
+                        
+                        // Register Link
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Don't have an account? ",
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: isDark ? AppColors.gray400 : AppColors.gray600,
                               ),
                             ),
-                            
-                            const SizedBox(height: AppTheme.spacingL),
-                            
-                            // Login Button
-                            Consumer<AuthProvider>(
-                              builder: (context, auth, _) {
-                                return Column(
-                                  children: [
-                                    AuthButton(
-                                      text: 'Sign In',
-                                      onPressed: _login,
-                                      isLoading: auth.isLoading,
-                                    ),
-                                  ],
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const RegisterScreen(),
+                                  ),
                                 );
                               },
+                              child: Text(
+                                'Sign Up',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: AppColors.electricPurple,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                      
-                      const SizedBox(height: AppTheme.spacingXL),
-                      
-                      // Register Link
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Don't have an account? ",
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: isDark ? AppColors.gray400 : AppColors.gray600,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const RegisterScreen(),
-                                ),
-                              );
-                            },
-                            child: Text(
-                              'Sign Up',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: AppColors.electricPurple,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

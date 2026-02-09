@@ -369,13 +369,9 @@ class AdminDashboardScreen extends StatelessWidget {
       final userCount = await FirebaseService.instance.countDocuments(AppConstants.usersCollection);
       final orderCount = await FirebaseService.instance.countDocuments(AppConstants.ordersCollection);
       
-      // Optimize: Limit to last 1000 orders to prevent crash
       final ordersSnapshot = await FirebaseService.instance.getCollection(
         AppConstants.ordersCollection,
-        queryBuilder: (q) => q
-            .where('status', isNotEqualTo: AppConstants.orderStatusCancelled)
-            .orderBy('createdAt', descending: true)
-            .limit(1000),
+        queryBuilder: (q) => q.orderBy('createdAt', descending: true).limit(1000),
       );
       
       double totalRevenue = 0;
@@ -384,6 +380,9 @@ class AdminDashboardScreen extends StatelessWidget {
       
       for (var doc in ordersSnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
+        
+        // Filter out cancelled orders locally to bypass index
+        if (data['status'] == AppConstants.orderStatusCancelled) continue;
         final amount = (data['totalAmount'] ?? 0).toDouble();
         totalRevenue += amount;
         

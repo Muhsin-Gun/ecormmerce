@@ -55,17 +55,15 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseService.instance.getCollectionStream(
                 'orders',
-                queryBuilder: (query) {
-                  Query q = query.orderBy('createdAt', descending: true);
-                  if (_selectedStatus != 'All') {
-                    q = q.where('status', isEqualTo: _selectedStatus.toLowerCase());
-                  }
-                  return q;
-                },
+                queryBuilder: (query) => query.orderBy('createdAt', descending: true).limit(500),
               ),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                   return Center(child: Text('Error: ${snapshot.error}'));
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -81,14 +79,24 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
                   );
                 }
 
-                final orders = snapshot.data!.docs;
+                final allOrders = snapshot.data!.docs;
+                final filteredOrders = _selectedStatus == 'All' 
+                  ? allOrders 
+                  : allOrders.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      return (data['status'] ?? '').toString().toLowerCase() == _selectedStatus.toLowerCase();
+                    }).toList();
+
+                if (filteredOrders.isEmpty) {
+                  return const Center(child: Text('No matching orders for this status'));
+                }
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(AppTheme.spacingM),
-                  itemCount: orders.length,
+                  itemCount: filteredOrders.length,
                   itemBuilder: (context, index) {
-                    final order = orders[index].data() as Map<String, dynamic>;
-                    final orderId = orders[index].id;
+                    final order = filteredOrders[index].data() as Map<String, dynamic>;
+                    final orderId = filteredOrders[index].id;
                     
                     return _buildOrderCard(context, orderId, order);
                   },

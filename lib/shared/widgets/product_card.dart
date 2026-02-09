@@ -31,7 +31,7 @@ class ProductCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: isCompact ? 160 : 200,
+        width: isCompact ? 150 : 180,
         decoration: BoxDecoration(
           color: isDark ? AppColors.darkCard : AppColors.lightCard,
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -143,85 +143,79 @@ class ProductCard extends StatelessWidget {
             ),
 
             // Details Section
-            Expanded(
-              flex: 3,
-              child: Padding(
-                padding: const EdgeInsets.all(AppTheme.spacingS),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          product.brand ?? '',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.gray500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          product.name,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+            Padding(
+              padding: const EdgeInsets.all(AppTheme.spacingS),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    product.brand ?? '',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppColors.gray500,
                     ),
-                    
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    product.name,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            Formatters.formatCurrency(product.price),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: AppColors.primaryIndigo,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (product.isOnSale && product.compareAtPrice != null)
                             Text(
-                              Formatters.formatCurrency(product.price),
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: AppColors.primaryIndigo,
-                                fontWeight: FontWeight.bold,
+                              Formatters.formatCurrency(product.compareAtPrice!),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: AppColors.gray500,
+                                decoration: TextDecoration.lineThrough,
                               ),
                             ),
-                            if (product.isOnSale && product.compareAtPrice != null)
-                              Text(
-                                Formatters.formatCurrency(product.compareAtPrice!),
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: AppColors.gray500,
-                                  decoration: TextDecoration.lineThrough,
-                                ),
-                              ),
-                          ],
-                        ),
-                        
-                        if (onAddToCart != null)
-                          Container(
-                            decoration: const BoxDecoration(
-                              color: AppColors.electricPurple,
-                              shape: BoxShape.circle,
-                            ),
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.add_shopping_cart,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              onPressed: onAddToCart,
-                              constraints: const BoxConstraints(
-                                minWidth: 36,
-                                minHeight: 36,
-                              ),
-                              padding: EdgeInsets.zero,
-                            ),
+                        ],
+                      ),
+                      
+                      if (onAddToCart != null)
+                        Container(
+                          decoration: const BoxDecoration(
+                            color: AppColors.electricPurple,
+                            shape: BoxShape.circle,
                           ),
-                      ],
-                    ),
-                  ],
-                ),
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.add_shopping_cart,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            onPressed: onAddToCart,
+                            constraints: const BoxConstraints(
+                              minWidth: 36,
+                              minHeight: 36,
+                            ),
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
