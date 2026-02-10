@@ -7,8 +7,6 @@ import '../../core/utils/validators.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
-import '../widgets/role_selector.dart';
-import 'email_verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -28,7 +26,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmPasswordController = TextEditingController();
   
   // State
-  String _selectedRole = AppConstants.roleClient;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -53,7 +50,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       password: _passwordController.text,
       name: _nameController.text.trim(),
       phone: _phoneController.text.trim(),
-      role: _selectedRole,
+      role: AppConstants.roleClient,
     );
     
     if (success && mounted) {
@@ -110,15 +107,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Role Selection
-          RoleSelector(
-            selectedRole: _selectedRole,
-            onRoleSelected: (role) {
-              setState(() => _selectedRole = role);
-            },
-          ),
-          const SizedBox(height: AppTheme.spacingL),
-          
           Text(
             'Personal Information',
             style: theme.textTheme.titleSmall?.copyWith(

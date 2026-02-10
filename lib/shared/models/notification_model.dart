@@ -25,7 +25,7 @@ class NotificationModel {
       id: doc.id,
       title: data['title'] ?? '',
       body: data['body'] ?? '',
-      timestamp: (data['timestamp'] as Timestamp).toDate(),
+      timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isRead: data['isRead'] ?? false,
       type: data['type'] ?? 'system',
       data: data['data'],
