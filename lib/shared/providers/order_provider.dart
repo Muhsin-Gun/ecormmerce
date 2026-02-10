@@ -4,6 +4,7 @@ import '../../core/constants/constants.dart';
 import '../models/order_model.dart';
 import '../models/cart_item_model.dart';
 import '../services/firebase_service.dart';
+import '../services/in_app_notification_service.dart';
 import '../../auth/models/user_model.dart';
 
 /// Order Provider for managing orders
@@ -171,6 +172,13 @@ class OrderProvider extends ChangeNotifier {
       );
 
       _selectedOrder = order.copyWith(orderId: docRef.id);
+
+      await InAppNotificationService.notifyOrderPlaced(
+        customerId: userId,
+        orderId: docRef.id,
+        customerName: userName,
+      );
+
       _setLoading(false);
       return docRef.id;
     } catch (e) {
@@ -217,6 +225,18 @@ class OrderProvider extends ChangeNotifier {
         notifyListeners();
       }
 
+      final matchingOrders = _orders.where((o) => o.orderId == orderId);
+      final localOrder = matchingOrders.isNotEmpty ? matchingOrders.first : _selectedOrder;
+      if (localOrder != null) {
+        await InAppNotificationService.notifyUser(
+          userId: localOrder.userId,
+          title: 'Order update',
+          body: 'Order #$orderId is now ${newStatus.replaceAll('_', ' ')}.',
+          type: 'order',
+          data: {'orderId': orderId, 'status': newStatus},
+        );
+      }
+
       return true;
     } catch (e) {
       debugPrint('Error updating order status: $e');
@@ -255,6 +275,14 @@ class OrderProvider extends ChangeNotifier {
           mpesaTransactionId: mpesaTransactionId,
         );
         _applyFilters();
+
+        await InAppNotificationService.notifyUser(
+          userId: _orders[index].userId,
+          title: 'Payment status updated',
+          body: 'Payment for order #$orderId is now ${paymentStatus.replaceAll('_', ' ')}.',
+          type: 'payment',
+          data: {'orderId': orderId, 'paymentStatus': paymentStatus},
+        );
       }
 
       return true;
@@ -288,6 +316,14 @@ class OrderProvider extends ChangeNotifier {
           assignedToEmployeeName: employeeName,
         );
         _applyFilters();
+
+        await InAppNotificationService.notifyUser(
+          userId: _orders[index].userId,
+          title: 'Order assigned',
+          body: 'Order #$orderId has been assigned to $employeeName for handling.',
+          type: 'order',
+          data: {'orderId': orderId, 'assignedToEmployeeId': employeeId},
+        );
       }
 
       return true;

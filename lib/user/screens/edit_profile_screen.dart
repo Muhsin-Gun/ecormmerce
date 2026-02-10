@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/services/firebase_service.dart';
-import '../../core/constants/constants.dart';
+import '../../shared/services/cloudinary_service.dart';
 import '../../shared/widgets/auth_button.dart';
 import '../../shared/widgets/auth_text_field.dart';
 
@@ -17,9 +18,11 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
+  final ImagePicker _picker = ImagePicker();
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
   bool _isLoading = false;
+  String? _profileImageUrl;
 
   @override
   void initState() {
@@ -27,6 +30,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final user = context.read<AuthProvider>().userModel;
     _nameController = TextEditingController(text: user?.name);
     _phoneController = TextEditingController(text: user?.phoneNumber);
+    _profileImageUrl = user?.profileImageUrl;
   }
 
   @override
@@ -36,18 +40,39 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
+  Future<void> _pickProfilePhoto(ImageSource source) async {
+    try {
+      final file = await _picker.pickImage(source: source, imageQuality: 80, maxWidth: 1200);
+      if (file == null) return;
+
+      setState(() => _isLoading = true);
+      final url = await CloudinaryService.uploadImage(file);
+      if (url == null) throw Exception('Could not upload image to Cloudinary');
+
+      setState(() => _profileImageUrl = url);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Photo upload failed: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
-    
+
     try {
-      final auth = context.read<AuthProvider>();
       await FirebaseService.instance.updateCurrentUserDocument({
         'name': _nameController.text.trim(),
         'phone': _phoneController.text.trim(),
+        'profileImageUrl': _profileImageUrl,
       });
-      
+
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -65,6 +90,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  void _showPhotoOptions() {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickProfilePhoto(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickProfilePhoto(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -78,6 +131,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               key: _formKey,
               child: Column(
                 children: [
+                  Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 48,
+                        backgroundColor: AppColors.gray200,
+                        backgroundImage: _profileImageUrl != null ? NetworkImage(_profileImageUrl!) : null,
+                        child: _profileImageUrl == null
+                            ? const Icon(Icons.person, size: 42, color: AppColors.gray600)
+                            : null,
+                      ),
+                      Positioned(
+                        right: -4,
+                        bottom: -4,
+                        child: Material(
+                          color: AppColors.primaryIndigo,
+                          shape: const CircleBorder(),
+                          child: IconButton(
+                            onPressed: _isLoading ? null : _showPhotoOptions,
+                            icon: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.spacingL),
                   AuthTextField(
                     controller: _nameController,
                     labelText: 'Full Name',

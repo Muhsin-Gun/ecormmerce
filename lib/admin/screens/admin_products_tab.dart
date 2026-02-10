@@ -26,7 +26,7 @@ class AdminProductsTab extends StatelessWidget {
           }
 
           if (provider.products.isEmpty) {
-             return const Center(child: Text("No products yet. Add one!"));
+            return const Center(child: Text('No products yet. Add one!'));
           }
 
           return ListView.separated(
@@ -45,7 +45,7 @@ class AdminProductsTab extends StatelessWidget {
                       width: 50,
                       height: 50,
                       fit: BoxFit.cover,
-                      errorBuilder: (_,__,___) => const Icon(Icons.broken_image),
+                      errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
                     ),
                   ),
                   title: Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -67,10 +67,39 @@ class AdminProductsTab extends StatelessWidget {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => AddEditProductScreen(product: product)));
                         },
                       ),
-                       IconButton(
+                      IconButton(
                         icon: const Icon(Icons.delete, size: 20, color: AppColors.error),
-                        onPressed: () {
-                           // Confirm Delete logic
+                        onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Delete product'),
+                              content: Text('Are you sure you want to delete "${product.name}"?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                FilledButton(
+                                  style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text('Delete'),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirm != true) return;
+
+                          final deleted = await context.read<ProductProvider>().deleteProduct(product.productId);
+                          if (!context.mounted) return;
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(deleted ? 'Product deleted' : 'Could not delete product'),
+                              backgroundColor: deleted ? AppColors.success : AppColors.error,
+                            ),
+                          );
                         },
                       ),
                     ],
