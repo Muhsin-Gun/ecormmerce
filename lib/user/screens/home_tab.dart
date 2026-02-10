@@ -14,6 +14,7 @@ import '../../shared/widgets/product_card.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/skeleton_loader.dart';
 import 'product_details_screen.dart';
+import 'notification_screen.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -47,6 +48,7 @@ class _HomeTabState extends State<HomeTab> {
         actions: [
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline),
+            tooltip: 'Messages',
             onPressed: () {
               Navigator.push(
                 context,
@@ -56,7 +58,13 @@ class _HomeTabState extends State<HomeTab> {
           ),
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+            tooltip: 'Notifications',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationScreen()),
+              );
+            },
           ),
         ],
       ),

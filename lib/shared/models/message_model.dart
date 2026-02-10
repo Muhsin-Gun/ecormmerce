@@ -49,6 +49,8 @@ class ConversationModel {
   final Map<String, String> participantNames;
   final MessageModel? lastMessage;
   final DateTime? updatedAt;
+  final int unreadCount;
+  final String? lastSenderId;
 
   const ConversationModel({
     required this.id,
@@ -56,6 +58,8 @@ class ConversationModel {
     required this.participantNames,
     this.lastMessage,
     this.updatedAt,
+    this.unreadCount = 0,
+    this.lastSenderId,
   });
 
   /// 🔹 Firestore → Model
@@ -69,6 +73,8 @@ class ConversationModel {
           Map<String, String>.from(data['participantNames'] ?? {}),
       updatedAt:
           (data['updatedAt'] as Timestamp?)?.toDate(),
+      unreadCount: data['unreadCount'] ?? 0,
+      lastSenderId: data['lastSenderId'],
       lastMessage: data['lastMessage'] != null
           ? MessageModel(
               id: data['lastMessage']['id'] ?? '',
@@ -90,6 +96,8 @@ class ConversationModel {
       'participants': participants,
       'participantNames': participantNames,
       'updatedAt': Timestamp.fromDate(updatedAt ?? DateTime.now()),
+      'unreadCount': unreadCount,
+      'lastSenderId': lastSenderId,
       'lastMessage': lastMessage != null
           ? {
               'id': lastMessage!.id,

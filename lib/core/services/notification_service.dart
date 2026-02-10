@@ -1,7 +1,10 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import '../theme/app_colors.dart';
 import '../../main.dart';
 
 class NotificationService {
@@ -31,17 +34,45 @@ class NotificationService {
     await _localNotifications.initialize(initializationSettings);
 
     // 3. Listen to Foreground Messages
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       debugPrint('Got a message whilst in the foreground!');
       _showLocalNotification(message);
       
+      // Save notification to Firestore if user is logged in
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        try {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .collection('notifications')
+              .add({
+            'title': message.notification?.title ?? 'New Message',
+            'body': message.notification?.body ?? '',
+            'timestamp': FieldValue.serverTimestamp(),
+            'isRead': false,
+            'type': message.data['type'] ?? 'system',
+            'data': message.data,
+          });
+        } catch (e) {
+          debugPrint('Error saving notification: $e');
+        }
+      }
+
       // Global Snackbar via Navigation Key
       ProMarketApp.scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text(message.notification?.title ?? 'New Message'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.indigo,
-          action: SnackBarAction(label: 'View', textColor: Colors.white, onPressed: () {}),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          backgroundColor: AppColors.primaryIndigo,
+          action: SnackBarAction(
+            label: 'View', 
+            textColor: Colors.white, 
+            onPressed: () {
+              // Navigation logic can be added here
+            }
+          ),
         ),
       );
     });

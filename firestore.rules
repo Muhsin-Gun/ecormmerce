@@ -53,8 +53,8 @@ service cloud.firestore {
 
     // Users: Users can read/write their own data, admins see all
     match /users/{userId} {
-      // Allow users to read their own document to bootstrap role checks
-      allow read: if request.auth.uid == userId || isAdmin();
+      // Allow users to read their own document or any admin document
+      allow read: if request.auth.uid == userId || isAdmin() || resource.data.role == 'admin';
       allow write: if request.auth.uid == userId || isAdmin();
     }
 
@@ -74,17 +74,17 @@ service cloud.firestore {
       }
     }
 
-    // Conversations: participants can read/write
+    // Conversations: participants can read/write, admins can do all
     match /conversations/{conversationId} {
-      allow read: if isAuthenticated() && request.auth.uid in resource.data.participants;
+      allow read: if isAuthenticated() && (request.auth.uid in resource.data.participants || isAdmin());
       allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participants;
-      allow update: if isAuthenticated() && request.auth.uid in resource.data.participants;
+      allow update: if isAuthenticated() && (request.auth.uid in resource.data.participants || isAdmin());
       allow delete: if isAdmin();
     }
 
-    // Messages: participants only
+    // Messages: participants only, admins can read all
     match /messages/{messageId} {
-      allow read: if isAuthenticated() && isConversationParticipant(resource.data.conversationId);
+      allow read: if isAuthenticated() && (isConversationParticipant(resource.data.conversationId) || isAdmin());
       allow create: if isAuthenticated() && isConversationParticipant(request.resource.data.conversationId);
       allow update, delete: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.senderId);
     }

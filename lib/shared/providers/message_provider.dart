@@ -34,6 +34,19 @@ class MessageProvider extends ChangeNotifier {
             .toList());
   }
 
+  /// Listen to ALL conversations (for Admin)
+  Stream<List<ConversationModel>> streamAllConversations() {
+    return _firebaseService
+        .streamCollection(
+          AppConstants.conversationsCollection,
+          queryBuilder: (query) => query
+              .orderBy('updatedAt', descending: true),
+        )
+        .map((snapshot) => snapshot.docs
+            .map((doc) => ConversationModel.fromFirestore(doc))
+            .toList());
+  }
+
   /// Listen to messages in a specific conversation
   Stream<List<MessageModel>> streamMessages(String conversationId) {
     _currentConversationId = conversationId;
@@ -72,15 +85,22 @@ class MessageProvider extends ChangeNotifier {
         message.toMap(),
       );
 
-      // Update conversation last message
+      // Update conversation last message and increment unread count
       await _firebaseService.updateDocument(
         AppConstants.conversationsCollection,
         conversationId,
         {
-          'lastMessage': text,
+          'lastMessage': {
+            'id': '', 
+            'senderId': senderId,
+            'text': text,
+            'isImage': type == 'image',
+            'createdAt': FieldValue.serverTimestamp(),
+          },
           'lastMessageTime': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
-          // Increment unread count logic would go here or via Cloud Functions
+          'unreadCount': FieldValue.increment(1),
+          'lastSenderId': senderId,
         },
       );
     } catch (e) {
@@ -139,7 +159,16 @@ class MessageProvider extends ChangeNotifier {
 
   /// Mark messages as read
   Future<void> markAsRead(String conversationId, String userId) async {
-    // This would typically involve a batch update or Cloud Function
-    // For MVP, we can update the unread count on the conversation doc
+    try {
+      await _firebaseService.updateDocument(
+        AppConstants.conversationsCollection,
+        conversationId,
+        {
+          'unreadCount': 0,
+        },
+      );
+    } catch (e) {
+      debugPrint('Error marking as read: $e');
+    }
   }
 }

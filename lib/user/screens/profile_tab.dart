@@ -13,6 +13,8 @@ import 'wishlist_screen.dart';
 import 'address_screen.dart';
 import 'payment_history_screen.dart';
 import 'edit_profile_screen.dart';
+import 'notification_screen.dart';
+import '../../shared/screens/conversation_list_screen.dart';
 import '../../shared/services/firebase_service.dart';
 
 class ProfileTab extends StatelessWidget {
@@ -153,6 +155,30 @@ class ProfileTab extends StatelessWidget {
                   );
                 },
               ),
+                _buildSettingsTile(
+                 context,
+                 icon: Icons.history,
+                 title: 'Notification History',
+                 subtitle: 'View all past notifications',
+                 onTap: () {
+                   Navigator.push(
+                     context,
+                     MaterialPageRoute(builder: (_) => const NotificationScreen()),
+                   );
+                 },
+               ),
+               _buildSettingsTile(
+                 context,
+                 icon: Icons.chat_bubble_outline,
+                 title: 'Messages',
+                 subtitle: 'Chat with support',
+                 onTap: () {
+                   Navigator.push(
+                     context,
+                     MaterialPageRoute(builder: (_) => const ConversationListScreen()),
+                   );
+                 },
+               ),
                _buildSettingsTile(
                 context,
                 icon: Icons.payment_outlined,

@@ -7,6 +7,7 @@ import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/support_utils.dart';
 import '../../shared/models/product_model.dart';
 import '../../shared/providers/cart_provider.dart';
 import '../../shared/providers/review_provider.dart';
@@ -307,66 +308,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     Consumer<AuthProvider>(
                       builder: (context, auth, _) {
                         return OutlinedButton.icon(
-                          onPressed: () async {
-                            if (!auth.isAuthenticated) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Please login to chat')),
-                              );
-                              return;
-                            }
-
-                            try {
-                              // Find Admin UID
-                              final snapshot = await context.read<FirebaseService>().searchDocuments(
-                                AppConstants.usersCollection,
-                                'email',
-                                AppConstants.superAdminEmail,
-                              );
-
-                              String otherUserId;
-                              String otherUserName = 'ProMarket Support';
-
-                              if (snapshot.docs.isNotEmpty) {
-                                otherUserId = snapshot.docs.first.id;
-                                // Optional: use real name
-                                // otherUserName = snapshot.docs.first['name']; 
-                              } else {
-                                // Fallback if admin doc missing (shouldn't happen with live fixes)
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Support is currently offline')),
-                                );
-                                return;
-                              }
-
-                              if (!context.mounted) return;
-
-                              final conversationId = await context.read<MessageProvider>().startConversation(
-                                currentUserId: auth.firebaseUser!.uid,
-                                otherUserId: otherUserId,
-                                otherUserName: otherUserName,
-                                otherUserRole: 'admin',
-                              );
-
-                              if (context.mounted) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ChatScreen(
-                                      chatId: conversationId,
-                                      receiverName: otherUserName,
-                                    ),
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              debugPrint('Chat Error: $e');
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Could not start chat')),
-                                );
-                              }
-                            }
-                          },
+                          onPressed: () => SupportUtils.startSupportChat(context),
                           icon: const Icon(Icons.chat_bubble_outline),
                           label: const Text('Chat with Support'),
                           style: OutlinedButton.styleFrom(
