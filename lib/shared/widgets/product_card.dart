@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import 'package:provider/provider.dart';
 import '../models/product_model.dart';
 import '../providers/wishlist_provider.dart';
+import 'optimized_network_image.dart';
 
 class ProductCard extends StatelessWidget {
   final ProductModel product;
@@ -27,6 +27,7 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final imageCacheSize = (320 * MediaQuery.of(context).devicePixelRatio).round();
 
     return GestureDetector(
       onTap: onTap,
@@ -58,18 +59,21 @@ class ProductCard extends StatelessWidget {
                     child: Hero(
                       tag: 'product_${product.productId}${heroTagSuffix ?? ''}',
                       child: product.mainImage.isNotEmpty
-                          ? CachedNetworkImage(
+                          ? OptimizedNetworkImage(
                               imageUrl: product.mainImage,
                               width: double.infinity,
                               height: double.infinity,
-                              memCacheWidth: (360 * MediaQuery.of(context).devicePixelRatio).round(),
-                              placeholder: (context, url) => Container(
+                              memCacheWidth: imageCacheSize,
+                              placeholder: Container(
                                 color: isDark ? Colors.grey[800] : Colors.grey[200],
                                 child: const Center(
-                                  child: CircularProgressIndicator(),
+                                  child: SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
                                 ),
                               ),
-                              errorWidget: (context, url, error) => Container(
+                              errorWidget: Container(
                                 color: isDark ? Colors.grey[800] : Colors.grey[200],
                                 child: const Icon(Icons.broken_image_outlined),
                               ),
@@ -111,9 +115,9 @@ class ProductCard extends StatelessWidget {
                   Positioned(
                     top: 8,
                     right: 8,
-                    child: Consumer<WishlistProvider>(
-                      builder: (context, wishlistProvider, _) {
-                        final isInWishlist = wishlistProvider.isInWishlist(product.productId);
+                    child: Selector<WishlistProvider, bool>(
+                      selector: (_, wishlistProvider) => wishlistProvider.isInWishlist(product.productId),
+                      builder: (context, isInWishlist, _) {
                         return Container(
                           decoration: BoxDecoration(
                             color: Colors.black.withOpacity(0.3),
@@ -126,7 +130,7 @@ class ProductCard extends StatelessWidget {
                               size: 18,
                             ),
                             onPressed: () {
-                              wishlistProvider.toggleWishlist(product);
+                              context.read<WishlistProvider>().toggleWishlist(product);
                             },
                             constraints: const BoxConstraints(
                               minWidth: 32,

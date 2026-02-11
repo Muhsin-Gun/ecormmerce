@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/constants.dart';
@@ -18,12 +20,22 @@ class SearchTab extends StatefulWidget {
 class _SearchTabState extends State<SearchTab> {
   final _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  Timer? _searchDebounce;
   
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 220), () {
+      if (!mounted) return;
+      context.read<ProductProvider>().searchProducts(value);
+    });
   }
 
   void _showFilterSortModal(BuildContext context) {
@@ -136,6 +148,7 @@ class _SearchTabState extends State<SearchTab> {
                       final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
                       return GridView.builder(
                         padding: const EdgeInsets.all(AppTheme.spacingM),
+                        cacheExtent: 1200,
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: crossAxisCount,
                           childAspectRatio: 0.7,
@@ -202,9 +215,7 @@ class _SearchTabState extends State<SearchTab> {
                     vertical: 12,
                   ),
                 ),
-                onChanged: (val) {
-                  context.read<ProductProvider>().searchProducts(val);
-                },
+                onChanged: _onSearchChanged,
               ),
             ),
             const SizedBox(width: AppTheme.spacingS),

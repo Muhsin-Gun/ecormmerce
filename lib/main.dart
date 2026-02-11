@@ -82,10 +82,9 @@ class ProMarketApp extends StatelessWidget {
         ChangeNotifierProxyProvider<AuthProvider, CartProvider>(
           create: (_) => CartProvider(),
           update: (_, auth, cart) {
-            if (auth.isAuthenticated) {
-              cart?.loadCart();
-            }
-            return cart ?? CartProvider();
+            final cartProvider = cart ?? CartProvider();
+            unawaited(cartProvider.ensureLoadedForUser(auth.firebaseUser?.uid));
+            return cartProvider;
           },
         ),
         
@@ -108,10 +107,9 @@ class ProMarketApp extends StatelessWidget {
         ChangeNotifierProxyProvider<AuthProvider, WishlistProvider>(
           create: (_) => WishlistProvider(),
           update: (_, auth, wishlist) {
-            if (auth.isAuthenticated) {
-              wishlist?.loadWishlist();
-            }
-            return wishlist ?? WishlistProvider();
+            final wishlistProvider = wishlist ?? WishlistProvider();
+            unawaited(wishlistProvider.ensureLoadedForUser(auth.firebaseUser?.uid));
+            return wishlistProvider;
           },
         ),
       ],

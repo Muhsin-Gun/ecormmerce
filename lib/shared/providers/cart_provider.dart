@@ -11,6 +11,7 @@ class CartProvider extends ChangeNotifier {
   String? _couponCode;
   double _discount = 0.0;
   bool _isLoading = false;
+  String? _loadedUserId;
 
   // Getters
   List<CartItemModel> get items => List.unmodifiable(_items);
@@ -35,6 +36,20 @@ class CartProvider extends ChangeNotifier {
 
   // Methods
   
+  Future<void> ensureLoadedForUser(String? userId) async {
+    if (userId == null) {
+      if (_items.isNotEmpty || _loadedUserId != null) {
+        _items = [];
+        _loadedUserId = null;
+        notifyListeners();
+      }
+      return;
+    }
+
+    if (_loadedUserId == userId || _isLoading) return;
+    await loadCart();
+  }
+
   Future<void> loadCart() async {
     final userId = _firebaseService.currentUserId;
     if (userId == null) {
@@ -44,6 +59,7 @@ class CartProvider extends ChangeNotifier {
     }
 
     try {
+      _isLoading = true;
       final doc = await _firebaseService.getDocument('carts', userId);
 
       if (doc.exists && doc.data() != null) {
@@ -60,6 +76,9 @@ class CartProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error loading cart: $e');
       _items = [];
+    } finally {
+      _isLoading = false;
+      _loadedUserId = userId;
     }
     notifyListeners();
   }
