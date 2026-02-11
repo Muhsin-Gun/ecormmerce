@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../auth/models/user_model.dart';
+import '../../core/constants/constants.dart';
 
 class InAppNotificationService {
   InAppNotificationService._();
@@ -73,7 +74,7 @@ class InAppNotificationService {
     );
 
     await notifyRoles(
-      roles: const [UserModel.roleAdmin, UserModel.roleEmployee],
+      roles: const [AppConstants.roleAdmin, AppConstants.roleEmployee],
       title: 'New order received',
       body: '$customerName placed order #$orderId.',
       type: 'order',

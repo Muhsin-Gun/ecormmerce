@@ -62,7 +62,7 @@ class ProductCard extends StatelessWidget {
                               imageUrl: product.mainImage,
                               width: double.infinity,
                               height: double.infinity,
-                              fit: BoxFit.cover,
+                              memCacheWidth: (360 * MediaQuery.of(context).devicePixelRatio).round(),
                               placeholder: (context, url) => Container(
                                 color: isDark ? Colors.grey[800] : Colors.grey[200],
                                 child: const Center(

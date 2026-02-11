@@ -21,6 +21,7 @@ import 'shared/providers/order_provider.dart';
 import 'shared/providers/review_provider.dart';
 import 'shared/providers/message_provider.dart';
 import 'shared/providers/wishlist_provider.dart';
+import 'shared/services/firebase_service.dart';
 import 'auth/widgets/auth_wrapper.dart';
 
 void main() {
@@ -59,6 +60,9 @@ class ProMarketApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // Services
+        Provider.value(value: FirebaseService.instance),
+        
         // Theme Provider
         ChangeNotifierProvider(
           create: (_) => ThemeProvider()..init(),

@@ -12,10 +12,13 @@ import 'order_history_screen.dart';
 import 'wishlist_screen.dart';
 import 'address_screen.dart';
 import 'payment_history_screen.dart';
+import '../../shared/services/firebase_service.dart';
+import 'settings_screen.dart';
+import 'help_support_screen.dart';
 import 'edit_profile_screen.dart';
 import 'notification_screen.dart';
 import '../../shared/screens/conversation_list_screen.dart';
-import '../../shared/services/firebase_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({super.key});
@@ -59,19 +62,27 @@ class ProfileTab extends StatelessWidget {
                       CircleAvatar(
                         radius: 50,
                         backgroundColor: Colors.white,
-                        backgroundImage: user.profileImageUrl != null
-                            ? NetworkImage(user.profileImageUrl!)
-                            : null,
-                        child: user.profileImageUrl == null
-                            ? Text(
-                                (user.name.isNotEmpty ? user.name[0] : 'U').toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primaryIndigo,
+                        child: ClipOval(
+                          child: user.profileImageUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: user.profileImageUrl!,
+                                  width: 100,
+                                  height: 100,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => const CircularProgressIndicator(),
+                                  errorWidget: (context, url, error) => const Icon(Icons.error),
+                                )
+                              : Center(
+                                  child: Text(
+                                    (user.name.isNotEmpty ? user.name[0] : 'U').toUpperCase(),
+                                    style: const TextStyle(
+                                      fontSize: 40,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primaryIndigo,
+                                    ),
+                                  ),
                                 ),
-                              )
-                            : null,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -155,7 +166,7 @@ class ProfileTab extends StatelessWidget {
                   );
                 },
               ),
-                _buildSettingsTile(
+              _buildSettingsTile(
                  context,
                  icon: Icons.history,
                  title: 'Notification History',
@@ -193,49 +204,31 @@ class ProfileTab extends StatelessWidget {
               ),
               
               const SizedBox(height: AppTheme.spacingL),
-              const SectionHeader(title: 'App Settings'),
-              
-              Consumer<ThemeProvider>(
-                builder: (context, themeProvider, _) {
-                  return SwitchListTile(
-                    secondary: Icon(
-                      themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
-                      color: AppColors.electricPurple,
-                    ),
-                    title: const Text('Dark Mode'),
-                    value: themeProvider.isDarkMode,
-                    onChanged: (value) => themeProvider.toggleTheme(),
-                  );
-                },
-              ),
+              const SectionHeader(title: 'App & Support'),
               
               _buildSettingsTile(
                 context,
-                icon: Icons.notifications_none,
-                title: 'Notifications',
-                onTap: () => _toggleNotifications(context, user.notificationsEnabled),
-                trailing: Switch(
-                  value: user.notificationsEnabled, 
-                  onChanged: (val) => _toggleNotifications(context, user.notificationsEnabled),
-                  activeColor: AppColors.electricPurple,
-                ),
+                icon: Icons.settings_outlined,
+                title: 'Settings',
+                subtitle: 'Theme, notifications, account',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  );
+                },
               ),
-
-              const SizedBox(height: AppTheme.spacingL),
-              
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    context.read<AuthProvider>().signOut();
-                  },
-                  icon: const Icon(Icons.logout, color: AppColors.error),
-                  label: const Text('Logout', style: TextStyle(color: AppColors.error)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.error),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
+              _buildSettingsTile(
+                context,
+                icon: Icons.help_outline,
+                title: 'Help & Support',
+                subtitle: 'FAQs and contact us',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
+                  );
+                },
               ),
               
               const SizedBox(height: 50),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/constants.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/models/review_model.dart';
 import '../../core/utils/formatters.dart';
@@ -38,19 +39,25 @@ class ReviewCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundImage: review.userImage != null
-                    ? NetworkImage(review.userImage!)
-                    : null,
                 backgroundColor: AppColors.electricPurple.withOpacity(0.1),
-                child: review.userImage == null
-                    ? Text(
-                        review.userName.isNotEmpty ? review.userName[0].toUpperCase() : 'U',
-                        style: const TextStyle(
-                          color: AppColors.electricPurple,
-                          fontWeight: FontWeight.bold,
+                child: ClipOval(
+                  child: review.userImage != null
+                      ? CachedNetworkImage(
+                          imageUrl: review.userImage!,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => const CircularProgressIndicator(),
+                          errorWidget: (context, url, error) => const Icon(Icons.error),
+                        )
+                      : Text(
+                          review.userName.isNotEmpty ? review.userName[0].toUpperCase() : 'U',
+                          style: const TextStyle(
+                            color: AppColors.electricPurple,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      )
-                    : null,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

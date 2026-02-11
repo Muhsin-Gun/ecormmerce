@@ -133,6 +133,11 @@ class AuthService {
     }
   }
 
+  /// 🔄 UPDATE PROFILE
+  Future<void> updateProfile(UserModel user) async {
+    await _db.collection('users').doc(user.userId).update(user.toMap());
+  }
+
   /// 🚪 LOGOUT
   Future<void> logout() async => await _auth.signOut();
 }

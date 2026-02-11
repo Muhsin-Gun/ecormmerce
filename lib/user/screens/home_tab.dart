@@ -24,7 +24,7 @@ class HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<HomeTab> {
-  int _currentCarouselIndex = 0;
+  final ValueNotifier<int> _currentCarouselIndex = ValueNotifier<int>(0);
   String _selectedCategory = 'All';
 
   @override
@@ -73,15 +73,16 @@ class _HomeTabState extends State<HomeTab> {
           if (provider.isLoading && provider.products.isEmpty) {
             return ListView(
               padding: const EdgeInsets.all(AppTheme.spacingL),
-              children: [
-                const SkeletonLoader(width: double.infinity, height: 180, borderRadius: AppTheme.radiusLarge),
-                const SizedBox(height: 24),
-                const SkeletonLoader(width: 150, height: 24),
-                const SizedBox(height: 16),
+              children: const [
+                SkeletonLoader(width: double.infinity, height: 180, borderRadius: AppTheme.radiusLarge),
+                SizedBox(height: 24),
+                SkeletonLoader(width: 150, height: 24),
+                SizedBox(height: 16),
                 Row(
                   children: [
-                    SkeletonLoader.productCard(),
-                    SkeletonLoader.productCard(),
+                    SkeletonLoader(width: 150, height: 200, borderRadius: AppTheme.radiusMedium),
+                    SizedBox(width: 16),
+                    SkeletonLoader(width: 150, height: 200, borderRadius: AppTheme.radiusMedium),
                   ],
                 ),
               ],
@@ -105,7 +106,7 @@ class _HomeTabState extends State<HomeTab> {
                             enlargeCenterPage: true,
                             autoPlay: true,
                             onPageChanged: (index, reason) {
-                              setState(() => _currentCarouselIndex = index);
+                              _currentCarouselIndex.value = index;
                             },
                           ),
                           items: provider.featuredProducts.map((product) {
@@ -117,21 +118,26 @@ class _HomeTabState extends State<HomeTab> {
                           }).toList(),
                         ),
                         const SizedBox(height: AppTheme.spacingS),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: provider.featuredProducts.asMap().entries.map((entry) {
-                            return Container(
-                              width: 8.0,
-                              height: 8.0,
-                              margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _currentCarouselIndex == entry.key
-                                    ? AppColors.electricPurple
-                                    : AppColors.gray300,
-                              ),
+                        ValueListenableBuilder<int>(
+                          valueListenable: _currentCarouselIndex,
+                          builder: (context, index, _) {
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: provider.featuredProducts.asMap().entries.map((entry) {
+                                return Container(
+                                  width: 8.0,
+                                  height: 8.0,
+                                  margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: index == entry.key
+                                        ? AppColors.electricPurple
+                                        : AppColors.gray300,
+                                  ),
+                                );
+                              }).toList(),
                             );
-                          }).toList(),
+                          },
                         ),
                       ],
                     ),

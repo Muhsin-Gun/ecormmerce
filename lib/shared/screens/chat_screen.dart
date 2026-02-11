@@ -8,6 +8,9 @@ import '../services/cloudinary_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/message_model.dart';
 import '../providers/message_provider.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+import 'package:flutter/foundation.dart' as foundation;
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -28,6 +31,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
   bool _isUploadingImage = false;
+  bool _showEmojiPicker = false;
+  final FocusNode _messageFocusNode = FocusNode();
 
   static const List<String> _quickEmojis = ['🔥', '💯', '✨', '❤️', '😂', '👏', '👍', '🚀'];
 
@@ -35,6 +40,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _messageFocusNode.dispose();
     super.dispose();
   }
 
@@ -233,60 +239,96 @@ class _ChatScreenState extends State<ChatScreen> {
               ],
             ),
             child: SafeArea(
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.electricPurple.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: _isUploadingImage
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.add_photo_alternate, color: AppColors.electricPurple),
-                      onPressed: _isUploadingImage ? null : _showImageSourceSheet,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppColors.gray800 : AppColors.gray100,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: TextField(
-                        controller: _messageController,
-                        decoration: const InputDecoration(
-                          hintText: 'Type a message...',
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 10),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          _showEmojiPicker ? Icons.keyboard : Icons.emoji_emotions_outlined,
+                          color: AppColors.electricPurple,
                         ),
-                        onSubmitted: (_) => _sendMessage(),
+                        onPressed: () {
+                          setState(() {
+                            _showEmojiPicker = !_showEmojiPicker;
+                            if (_showEmojiPicker) {
+                              _messageFocusNode.unfocus();
+                            } else {
+                              _messageFocusNode.requestFocus();
+                            }
+                          });
+                        },
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.electricPurple.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: _isUploadingImage
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.add_photo_alternate, color: AppColors.electricPurple),
+                          onPressed: _isUploadingImage ? null : _showImageSourceSheet,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.gray800 : AppColors.gray100,
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: TextField(
+                            controller: _messageController,
+                            focusNode: _messageFocusNode,
+                            decoration: const InputDecoration(
+                              hintText: 'Type a message...',
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(vertical: 10),
+                            ),
+                            onTap: () {
+                              if (_showEmojiPicker) {
+                                setState(() => _showEmojiPicker = false);
+                              }
+                            },
+                            onSubmitted: (_) => _sendMessage(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _messageController,
+                        builder: (context, value, _) {
+                          return GestureDetector(
+                            onTap: _sendMessage,
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: const BoxDecoration(
+                                color: AppColors.primaryIndigo,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.send, color: Colors.white, size: 20),
+                            ).animate(target: value.text.trim().isNotEmpty ? 1 : 0).scale(begin: const Offset(0.9, 0.9), end: const Offset(1, 1)),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  if (_showEmojiPicker)
+                    SizedBox(
+                      height: 250,
+                      child: EmojiPicker(
+                        onEmojiSelected: (category, emoji) {
+                          _addEmoji(emoji.emoji);
+                        },
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: _messageController,
-                    builder: (context, value, _) {
-                      return GestureDetector(
-                        onTap: _sendMessage,
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: const BoxDecoration(
-                            color: AppColors.primaryIndigo,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.send, color: Colors.white, size: 20),
-                        ).animate(target: value.text.trim().isNotEmpty ? 1 : 0).scale(begin: const Offset(0.9, 0.9), end: const Offset(1, 1)),
-                      );
-                    },
-                  ),
                 ],
               ),
             ),
@@ -331,12 +373,18 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildImageBubble(String imageUrl) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
-      child: Image.network(
-        imageUrl,
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
         width: 190,
         height: 190,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => const SizedBox(
+        placeholder: (context, url) => Container(
+          width: 190,
+          height: 190,
+          color: Colors.grey[200],
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+        errorWidget: (context, url, error) => const SizedBox(
           width: 190,
           height: 80,
           child: Center(child: Text('Could not load image')),
@@ -349,7 +397,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (isEmoji) {
       return Text(text, style: const TextStyle(fontSize: 46))
           .animate(onPlay: (c) => c.repeat(reverse: true))
-          .scale(begin: const Offset(1, 1), end: const Offset(1.16, 1.16), duration: 900.ms, curve: Curves.easeInOut);
+          .scale(begin: const Offset(1, 1), end: const Offset(1.12, 1.12), duration: 1200.ms, curve: Curves.easeInOut)
+          .moveY(begin: 0, end: -8, duration: 1200.ms, curve: Curves.easeInOut)
+          .shake(hz: 0.5, duration: 2400.ms);
     }
 
     return Text(

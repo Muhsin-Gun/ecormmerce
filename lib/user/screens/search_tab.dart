@@ -60,55 +60,7 @@ class _SearchTabState extends State<SearchTab> {
               child: Column(
                 children: [
                   // Search Bar & Filter Button
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          focusNode: _searchFocusNode,
-                          decoration: InputDecoration(
-                            hintText: 'Search products...',
-                            prefixIcon: const Icon(Icons.search),
-                            suffixIcon: _searchController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 20),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      context.read<ProductProvider>().searchProducts('');
-                                      setState(() {});
-                                    },
-                                  )
-                                : null,
-                            filled: true,
-                            fillColor: isDark ? Colors.black26 : Colors.grey[100],
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                          ),
-                          onChanged: (value) {
-                            context.read<ProductProvider>().searchProducts(value);
-                            setState(() {});
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: AppTheme.spacingS),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.black26 : Colors.grey[100],
-                          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.tune),
-                          onPressed: () => _showFilterSortModal(context),
-                        ),
-                      ),
-                    ],
-                  ),
+                  _buildSearchBar(context, isDark),
                   const SizedBox(height: AppTheme.spacingM),
                   
                   // Quick Category Filters
@@ -179,25 +131,30 @@ class _SearchTabState extends State<SearchTab> {
                     );
                   }
 
-                  return GridView.builder(
-                    padding: const EdgeInsets.all(AppTheme.spacingM),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2, // Responsive: adjust for larger screens
-                      childAspectRatio: 0.7,
-                      crossAxisSpacing: AppTheme.spacingM,
-                      mainAxisSpacing: AppTheme.spacingM,
-                    ),
-                    itemCount: provider.products.length,
-                    itemBuilder: (context, index) {
-                      return ProductCard(
-                        product: provider.products[index],
-                        heroTagSuffix: '_search_$index',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ProductDetailsScreen(product: provider.products[index]),
-                            ),
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+                      return GridView.builder(
+                        padding: const EdgeInsets.all(AppTheme.spacingM),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          childAspectRatio: 0.7,
+                          crossAxisSpacing: AppTheme.spacingM,
+                          mainAxisSpacing: AppTheme.spacingM,
+                        ),
+                        itemCount: provider.products.length,
+                        itemBuilder: (context, index) {
+                          return ProductCard(
+                            product: provider.products[index],
+                            heroTagSuffix: '_search_$index',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ProductDetailsScreen(product: provider.products[index]),
+                                ),
+                              );
+                            },
                           );
                         },
                       );
@@ -209,6 +166,61 @@ class _SearchTabState extends State<SearchTab> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSearchBar(BuildContext context, bool isDark) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _searchController,
+      builder: (context, value, _) {
+        return Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                decoration: InputDecoration(
+                  hintText: 'Search products...',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: value.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 20),
+                          onPressed: () {
+                            _searchController.clear();
+                            context.read<ProductProvider>().searchProducts('');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: isDark ? Colors.black26 : Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                ),
+                onChanged: (val) {
+                  context.read<ProductProvider>().searchProducts(val);
+                },
+              ),
+            ),
+            const SizedBox(width: AppTheme.spacingS),
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black26 : Colors.grey[100],
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.tune),
+                onPressed: () => _showFilterSortModal(context),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

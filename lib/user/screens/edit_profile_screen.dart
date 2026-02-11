@@ -8,6 +8,7 @@ import '../../shared/services/firebase_service.dart';
 import '../../shared/services/cloudinary_service.dart';
 import '../../shared/widgets/auth_button.dart';
 import '../../shared/widgets/auth_text_field.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -133,13 +134,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 children: [
                   Stack(
                     children: [
-                      CircleAvatar(
-                        radius: 48,
-                        backgroundColor: AppColors.gray200,
-                        backgroundImage: _profileImageUrl != null ? NetworkImage(_profileImageUrl!) : null,
-                        child: _profileImageUrl == null
-                            ? const Icon(Icons.person, size: 42, color: AppColors.gray600)
-                            : null,
+                      ClipOval(
+                        child: CircleAvatar(
+                          radius: 48,
+                          backgroundColor: AppColors.gray200,
+                          child: _profileImageUrl != null
+                              ? CachedNetworkImage(
+                                  imageUrl: _profileImageUrl!,
+                                  width: 96,
+                                  height: 96,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => const CircularProgressIndicator(),
+                                  errorWidget: (context, url, error) => const Icon(Icons.error),
+                                )
+                              : const Icon(Icons.person, size: 42, color: AppColors.gray600),
+                        ),
                       ),
                       Positioned(
                         right: -4,

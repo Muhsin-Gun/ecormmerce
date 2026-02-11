@@ -131,6 +131,20 @@ class AuthProvider extends ChangeNotifier {
   /// Alias for signOut for compatibility
   Future<void> logout() async => await signOut();
 
+  /// 🔄 UPDATE PROFILE
+  Future<void> updateProfile(UserModel updatedUser) async {
+    _setLoading(true);
+    try {
+      await _authService.updateProfile(updatedUser);
+      _userModel = updatedUser;
+      notifyListeners();
+    } catch (e) {
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   void _setLoading(bool value) {
     _isLoading = value;
     notifyListeners();

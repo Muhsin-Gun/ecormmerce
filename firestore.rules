@@ -56,6 +56,12 @@ service cloud.firestore {
       // Allow users to read their own document or any admin document
       allow read: if request.auth.uid == userId || isAdmin() || resource.data.role == 'admin';
       allow write: if request.auth.uid == userId || isAdmin();
+
+      // Notifications: Users manage their own, anyone can create for them (for chat)
+      match /notifications/{notificationId} {
+        allow read, update, delete: if request.auth.uid == userId || isAdmin();
+        allow create: if isAuthenticated();
+      }
     }
 
     // Orders: Users read/write their own, employees/admins see all

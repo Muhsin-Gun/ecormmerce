@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/constants.dart';
 import '../models/product_model.dart';
-import '../services/firebase_service.dart';
+import '../services/product_service.dart';
 
 /// Product Provider for managing product catalog and inventory
 class ProductProvider extends ChangeNotifier {
-  final FirebaseService _firebaseService = FirebaseService.instance;
+  final ProductService _productService = ProductService();
 
   List<ProductModel> _products = [];
   List<ProductModel> _filteredProducts = [];
@@ -63,15 +63,10 @@ class ProductProvider extends ChangeNotifier {
     _setLoading(true);
 
     try {
-      final snapshot = await _firebaseService.getPaginatedDocuments(
-        AppConstants.productsCollection,
+      final snapshot = await _productService.getProducts(
         limit: AppConstants.productsPerPage,
         startAfter: refresh ? null : _lastDocument,
-        queryBuilder: (query) {
-          // Only get active products
-          return query.where('isActive', isEqualTo: true)
-              .orderBy('createdAt', descending: true);
-        },
+        category: _selectedCategory,
       );
 
       if (snapshot.docs.isEmpty) {
@@ -111,15 +106,7 @@ class ProductProvider extends ChangeNotifier {
   /// Load featured products
   Future<void> loadFeaturedProducts() async {
     try {
-      final snapshot = await _firebaseService.getCollection(
-        AppConstants.productsCollection,
-        queryBuilder: (query) {
-          return query
-              .where('isActive', isEqualTo: true)
-              .where('isFeatured', isEqualTo: true)
-              .limit(10);
-        },
-      );
+      final snapshot = await _productService.getFeaturedProducts(limit: 10);
 
       _featuredProducts = snapshot.docs
           .map((doc) => ProductModel.fromFirestore(doc))
@@ -136,14 +123,9 @@ class ProductProvider extends ChangeNotifier {
     _setLoading(true);
 
     try {
-      final snapshot = await _firebaseService.getCollection(
-        AppConstants.productsCollection,
-        queryBuilder: (query) {
-          return query
-              .where('isActive', isEqualTo: true)
-              .where('category', isEqualTo: category)
-              .orderBy('createdAt', descending: true);
-        },
+      final snapshot = await _productService.getProducts(
+        category: category,
+        limit: 50, // More for category view
       );
 
       _products = snapshot.docs
@@ -161,21 +143,7 @@ class ProductProvider extends ChangeNotifier {
   /// Load related products
   Future<void> loadRelatedProducts(String category, String excludeId) async {
     try {
-      final snapshot = await _firebaseService.getCollection(
-        AppConstants.productsCollection,
-        queryBuilder: (query) {
-          return query
-              .where('isActive', isEqualTo: true)
-              .where('category', isEqualTo: category)
-              .limit(5); 
-        },
-      );
-
-      _relatedProducts = snapshot.docs
-          .map((doc) => ProductModel.fromFirestore(doc))
-          .where((p) => p.productId != excludeId)
-          .take(4)
-          .toList();
+      _relatedProducts = await _productService.getRelatedProducts(category, excludeId);
 
       notifyListeners();
     } catch (e) {
@@ -198,15 +166,7 @@ class ProductProvider extends ChangeNotifier {
   /// Load single product by ID
   Future<void> loadProduct(String productId) async {
     try {
-      final doc = await _firebaseService.getDocument(
-        AppConstants.productsCollection,
-        productId,
-      );
-
-      if (doc.exists) {
-        _selectedProduct = ProductModel.fromFirestore(doc);
-        notifyListeners();
-      }
+      _selectedProduct = await _productService.getProduct(productId);
     } catch (e) {
       debugPrint('Error loading product: $e');
     }
@@ -337,10 +297,7 @@ class ProductProvider extends ChangeNotifier {
   /// Add new product (admin only)
   Future<bool> addProduct(ProductModel product) async {
     try {
-      await _firebaseService.addDocument(
-        AppConstants.productsCollection,
-        product.toMap(),
-      );
+      await _productService.addProduct(product.toMap());
 
       // Refresh products
       await loadProducts(refresh: true);
@@ -354,8 +311,7 @@ class ProductProvider extends ChangeNotifier {
   /// Update product (admin only)
   Future<bool> updateProduct(ProductModel product) async {
     try {
-      await _firebaseService.updateDocument(
-        AppConstants.productsCollection,
+      await _productService.updateProduct(
         product.productId,
         product.toMap(),
       );
@@ -377,12 +333,7 @@ class ProductProvider extends ChangeNotifier {
   /// Delete product (admin only)
   Future<bool> deleteProduct(String productId) async {
     try {
-      // Soft delete - set isActive to false
-      await _firebaseService.updateDocument(
-        AppConstants.productsCollection,
-        productId,
-        {'isActive': false},
-      );
+      await _productService.deleteProduct(productId);
 
       // Remove from local list
       _products.removeWhere((p) => p.productId == productId);
@@ -398,11 +349,7 @@ class ProductProvider extends ChangeNotifier {
   /// Update product stock (employee/admin)
   Future<bool> updateStock(String productId, int newStock) async {
     try {
-      await _firebaseService.updateDocument(
-        AppConstants.productsCollection,
-        productId,
-        {'stock': newStock},
-      );
+      await _productService.updateStock(productId, newStock);
 
       // Update in local list
       final index = _products.indexWhere((p) => p.productId == productId);
