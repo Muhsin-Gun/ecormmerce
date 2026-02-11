@@ -14,6 +14,7 @@ class ProductProvider extends ChangeNotifier {
   List<ProductModel> _relatedProducts = [];
   List<String> _recentlyViewedIds = [];
   Set<String> _recentlyViewedIdsSet = {};
+  List<ProductModel> _recentlyViewedProducts = [];
   ProductModel? _selectedProduct;
 
   bool _isLoading = false;
@@ -33,8 +34,7 @@ class ProductProvider extends ChangeNotifier {
   List<ProductModel> get allProducts => _products;
   List<ProductModel> get featuredProducts => _featuredProducts;
   List<ProductModel> get relatedProducts => _relatedProducts;
-  List<ProductModel> get recentlyViewedProducts =>
-      _products.where((p) => _recentlyViewedIdsSet.contains(p.productId)).toList();
+  List<ProductModel> get recentlyViewedProducts => _recentlyViewedProducts;
   ProductModel? get selectedProduct => _selectedProduct;
 
   bool get isLoading => _isLoading;
@@ -160,6 +160,7 @@ class ProductProvider extends ChangeNotifier {
         _recentlyViewedIds.removeLast();
       }
       _recentlyViewedIdsSet = _recentlyViewedIds.toSet();
+      _recentlyViewedProducts = _products.where((p) => _recentlyViewedIdsSet.contains(p.productId)).toList();
       notifyListeners();
     }
   }

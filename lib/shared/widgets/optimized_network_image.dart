@@ -33,13 +33,15 @@ class OptimizedNetworkImage extends StatelessWidget {
       height: height,
       memCacheWidth: memCacheWidth,
       memCacheHeight: memCacheHeight,
-      filterQuality: FilterQuality.low,
+      maxHeightDiskCache: 800,
+      maxWidthDiskCache: 800,
+      filterQuality: FilterQuality.none, // Fastest rendering
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
       placeholderFadeInDuration: Duration.zero,
       placeholder: (_, __) =>
-          placeholder ?? const Center(child: SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))),
-      errorWidget: (_, __, ___) => errorWidget ?? const Icon(Icons.broken_image_outlined),
+          placeholder ?? Container(color: Colors.grey[300]),
+      errorWidget: (_, __, ___) => errorWidget ?? const Icon(Icons.broken_image_outlined, size: 32),
     );
   }
 }

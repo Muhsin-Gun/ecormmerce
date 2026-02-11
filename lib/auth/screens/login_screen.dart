@@ -102,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         child: SafeArea(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 500),
+              constraints: const BoxConstraints(maxWidth: 400),
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(AppTheme.spacingL),
                 child: FadeTransition(
@@ -198,6 +198,112 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                         text: 'Sign In',
                                         onPressed: _login,
                                         isLoading: auth.isLoading,
+                                      ),
+                                      
+                                      const SizedBox(height: AppTheme.spacingL),
+                                      
+                                      // Divider with "Or"
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Divider(
+                                              color: isDark ? AppColors.gray600 : AppColors.gray300,
+                                            ),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingM),
+                                            child: Text(
+                                              'Or continue with',
+                                              style: theme.textTheme.bodySmall?.copyWith(
+                                                color: isDark ? AppColors.gray500 : AppColors.gray600,
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Divider(
+                                              color: isDark ? AppColors.gray600 : AppColors.gray300,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      
+                                      const SizedBox(height: AppTheme.spacingL),
+                                      
+                                      // Google Sign-In Button (Standard Design)
+                                      SizedBox(
+                                        width: double.infinity,
+                                        height: 56,
+                                        child: OutlinedButton(
+                                          onPressed: auth.isLoading ? null : () async {
+                                            final success = await auth.signInWithGoogle();
+                                            if (success && mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('Welcome! Signed in with Google'),
+                                                  backgroundColor: AppColors.success,
+                                                ),
+                                              );
+                                            } else if (mounted && auth.errorMessage != null) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(auth.errorMessage!),
+                                                  backgroundColor: AppColors.error,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                          style: OutlinedButton.styleFrom(
+                                            backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+                                            side: BorderSide(
+                                              color: isDark ? AppColors.gray600 : AppColors.gray300,
+                                              width: 1.5,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              // Google Icon (Simple)
+                                              Container(
+                                                width: 20,
+                                                height: 20,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(2),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black.withOpacity(0.1),
+                                                      blurRadius: 2,
+                                                      offset: const Offset(0, 1),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: const Center(
+                                                  child: Text(
+                                                    'G',
+                                                    style: TextStyle(
+                                                      color: Color(0xFF4285F4),
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontFamily: 'Product Sans',
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Text(
+                                                'Google',
+                                                style: theme.textTheme.titleSmall?.copyWith(
+                                                  fontWeight: FontWeight.w500,
+                                                  color: isDark ? Colors.white : AppColors.gray700,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   );

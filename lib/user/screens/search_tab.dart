@@ -6,6 +6,7 @@ import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/providers/product_provider.dart';
+import '../../shared/models/product_model.dart';
 import '../../shared/widgets/category_chip.dart';
 import '../../shared/widgets/product_card.dart';
 import 'product_details_screen.dart';
@@ -110,70 +111,82 @@ class _SearchTabState extends State<SearchTab> {
 
             // Results
             Expanded(
-              child: Consumer<ProductProvider>(
-                builder: (context, provider, _) {
-                  if (provider.isLoading) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (provider.products.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.search_off,
-                            size: 64,
-                            color: isDark ? AppColors.gray600 : AppColors.gray400,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No products found',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: isDark ? AppColors.gray500 : AppColors.gray500,
-                            ),
-                          ),
-                          if (provider.selectedCategory != null || provider.minPrice != null)
-                             TextButton(
-                               onPressed: () => provider.clearFilters(),
-                               child: const Text('Clear Filters'),
-                             ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
-                      return GridView.builder(
-                        padding: const EdgeInsets.all(AppTheme.spacingM),
-                        cacheExtent: 1200,
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: crossAxisCount,
-                          childAspectRatio: 0.7,
-                          crossAxisSpacing: AppTheme.spacingM,
-                          mainAxisSpacing: AppTheme.spacingM,
-                        ),
-                        itemCount: provider.products.length,
-                        itemBuilder: (context, index) {
-                          return ProductCard(
-                            product: provider.products[index],
-                            heroTagSuffix: '_search_$index',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ProductDetailsScreen(product: provider.products[index]),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      );
-                    },
-                  );
+              child: Selector<ProductProvider, bool>(
+                selector: (_, p) => p.isLoading,
+                builder: (context, isLoading, child) {
+                  if (isLoading) return const Center(child: CircularProgressIndicator());
+                  return child!;
                 },
+                child: Selector<ProductProvider, List<ProductModel>>(
+                  selector: (_, p) => p.products,
+                  builder: (context, products, _) {
+                    if (products.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.search_off,
+                              size: 64,
+                              color: isDark ? AppColors.gray600 : AppColors.gray400,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No products found',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: isDark ? AppColors.gray500 : AppColors.gray500,
+                              ),
+                            ),
+                            Selector<ProductProvider, bool>(
+                              selector: (_, p) => p.selectedCategory != null || p.minPrice != null,
+                              builder: (context, hasFilters, _) {
+                                if (!hasFilters) return const SizedBox();
+                                return TextButton(
+                                  onPressed: () => context.read<ProductProvider>().clearFilters(),
+                                  child: const Text('Clear Filters'),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+                        return GridView.builder(
+                          padding: const EdgeInsets.all(AppTheme.spacingM),
+                          cacheExtent: 200,
+                          addAutomaticKeepAlives: false,
+                          addRepaintBoundaries: false,
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: crossAxisCount,
+                            childAspectRatio: 0.7,
+                            crossAxisSpacing: AppTheme.spacingM,
+                            mainAxisSpacing: AppTheme.spacingM,
+                          ),
+                          itemCount: products.length,
+                          itemBuilder: (context, index) {
+                            final product = products[index];
+                            return ProductCard(
+                              product: product,
+                              heroTagSuffix: '_search_$index',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ProductDetailsScreen(product: product),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ],

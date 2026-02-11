@@ -65,211 +65,212 @@ class _HomeTabState extends State<HomeTab> {
           ),
         ],
       ),
-      body: Consumer<ProductProvider>(
-        builder: (context, provider, child) {
-          if (provider.isLoading && provider.products.isEmpty) {
-            return ListView(
-              padding: const EdgeInsets.all(AppTheme.spacingL),
-              children: const [
-                SkeletonLoader(width: double.infinity, height: 180, borderRadius: AppTheme.radiusLarge),
-                SizedBox(height: 24),
-                SkeletonLoader(width: 150, height: 24),
-                SizedBox(height: 16),
-                Row(
-                  children: [
-                    SkeletonLoader(width: 150, height: 200, borderRadius: AppTheme.radiusMedium),
-                    SizedBox(width: 16),
-                    SkeletonLoader(width: 150, height: 200, borderRadius: AppTheme.radiusMedium),
-                  ],
-                ),
-              ],
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async => await provider.refresh(),
-            child: CustomScrollView(
-              cacheExtent: 1200,
-              slivers: [
-                // 1. Featured Carousel
-                if (provider.featuredProducts.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: Column(
-                      children: [
-                        const SizedBox(height: AppTheme.spacingM),
-                        CarouselSlider(
-                          options: CarouselOptions(
-                            height: 180,
-                            viewportFraction: 0.9,
-                            enlargeCenterPage: true,
-                            autoPlay: true,
-                            onPageChanged: (index, reason) {
-                              _currentCarouselIndex.value = index;
-                            },
-                          ),
-                          items: provider.featuredProducts.map((product) {
-                            return Builder(
-                              builder: (BuildContext context) {
-                                return _buildFeaturedCard(context, product);
-                              },
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: AppTheme.spacingS),
-                        ValueListenableBuilder<int>(
-                          valueListenable: _currentCarouselIndex,
-                          builder: (context, index, _) {
-                            return Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: provider.featuredProducts.asMap().entries.map((entry) {
-                                return Container(
-                                  width: 8.0,
-                                  height: 8.0,
-                                  margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: index == entry.key
-                                        ? AppColors.electricPurple
-                                        : AppColors.gray300,
-                                  ),
-                                );
-                              }).toList(),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
+      body: RefreshIndicator(
+        onRefresh: () async => await context.read<ProductProvider>().refresh(),
+        child: CustomScrollView(
+          cacheExtent: 200,
+          slivers: [
+            // 0. Loading State - Only rebuilds if loading changes
+            Selector<ProductProvider, bool>(
+              selector: (_, p) => p.isLoading && p.products.isEmpty,
+              builder: (context, isLoading, _) {
+                if (!isLoading) return const SliverToBoxAdapter(child: SizedBox.shrink());
+                return SliverPadding(
+                  padding: const EdgeInsets.all(AppTheme.spacingL),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      const SkeletonLoader(width: double.infinity, height: 180, borderRadius: AppTheme.radiusLarge),
+                      const SizedBox(height: 24),
+                      const SkeletonLoader(width: 150, height: 24),
+                      const SizedBox(height: 16),
+                      const Row(
+                        children: [
+                          SkeletonLoader(width: 150, height: 200, borderRadius: AppTheme.radiusMedium),
+                          SizedBox(width: 16),
+                          SkeletonLoader(width: 150, height: 200, borderRadius: AppTheme.radiusMedium),
+                        ],
+                      ),
+                    ]),
                   ),
+                );
+              },
+            ),
 
-                // 1.5 Recently Viewed
-                if (provider.recentlyViewedProducts.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SectionHeader(title: 'Recently Viewed'),
-                        SizedBox(
-                          height: 220,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
-                            itemCount: provider.recentlyViewedProducts.length,
-                            itemBuilder: (context, index) {
-                              final product = provider.recentlyViewedProducts[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(right: AppTheme.spacingM),
-                                child: ProductCard(
-                                  product: product,
-                                  heroTagSuffix: '_recent_$index',
-                                  isCompact: true,
-                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(product: product))),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                // 2. Categories
-                SliverToBoxAdapter(
+            // 1. Featured Carousel
+            Selector<ProductProvider, List<ProductModel>>(
+              selector: (_, p) => p.featuredProducts,
+              builder: (context, featuredProducts, _) {
+                if (featuredProducts.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+                return SliverToBoxAdapter(
                   child: Column(
                     children: [
-                      SectionHeader(title: 'Categories'),
-                      SizedBox(
-                        height: 50,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
-                          children: [
-                            CategoryChip(
-                              label: 'All',
-                              isSelected: _selectedCategory == 'All',
-                              onTap: () {
-                                setState(() => _selectedCategory = 'All');
-                                provider.clearFilters();
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            ...AppConstants.productCategories.map((category) {
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: CategoryChip(
-                                  label: category,
-                                  isSelected: _selectedCategory == category,
-                                  onTap: () {
-                                    setState(() => _selectedCategory = category);
-                                    provider.setCategory(category);
-                                  },
+                      const SizedBox(height: AppTheme.spacingM),
+                      CarouselSlider(
+                        options: CarouselOptions(
+                          height: 180,
+                          viewportFraction: 0.9,
+                          enlargeCenterPage: true,
+                          autoPlay: true,
+                          onPageChanged: (index, _) => _currentCarouselIndex.value = index,
+                        ),
+                        items: featuredProducts.map((product) => _buildFeaturedCard(context, product)).toList(),
+                      ),
+                      const SizedBox(height: AppTheme.spacingS),
+                      ValueListenableBuilder<int>(
+                        valueListenable: _currentCarouselIndex,
+                        builder: (context, index, _) {
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: featuredProducts.asMap().entries.map((entry) {
+                              return Container(
+                                width: 8.0,
+                                height: 8.0,
+                                margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: index == entry.key ? AppColors.electricPurple : AppColors.gray300,
                                 ),
                               );
-                            }),
-                          ],
+                            }).toList(),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+
+            // 1.5 Recently Viewed
+            Selector<ProductProvider, List<ProductModel>>(
+              selector: (_, p) => p.recentlyViewedProducts,
+              builder: (context, recentlyViewed, _) {
+                if (recentlyViewed.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+                return SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SectionHeader(title: 'Recently Viewed'),
+                      SizedBox(
+                        height: 220,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+                          itemCount: recentlyViewed.length,
+                          itemBuilder: (context, index) {
+                            final product = recentlyViewed[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(right: AppTheme.spacingM),
+                              child: ProductCard(
+                                product: product,
+                                heroTagSuffix: '_recent_$index',
+                                isCompact: true,
+                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(product: product))),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
                   ),
-                ),
+                );
+              },
+            ),
 
-                // 3. New Arrivals (Vertical Grid)
-                SliverToBoxAdapter(
-                  child: SectionHeader(
-                    title: 'New Arrivals',
-                    actionText: 'See All',
-                    onActionTap: () {
-                      // Navigate to full list
-                    },
+            // 2. Categories
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  const SectionHeader(title: 'Categories'),
+                  SizedBox(
+                    height: 50,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+                      children: [
+                        CategoryChip(
+                          label: 'All',
+                          isSelected: _selectedCategory == 'All',
+                          onTap: () {
+                            setState(() => _selectedCategory = 'All');
+                            context.read<ProductProvider>().clearFilters();
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ...AppConstants.productCategories.map((category) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: CategoryChip(
+                              label: category,
+                              isSelected: _selectedCategory == category,
+                              onTap: () {
+                                setState(() => _selectedCategory = category);
+                                context.read<ProductProvider>().setCategory(category);
+                              },
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
                   ),
-                ),
+                ],
+              ),
+            ),
 
-                SliverPadding(
+            // 3. New Arrivals Header
+            const SliverToBoxAdapter(
+              child: SectionHeader(
+                title: 'New Arrivals',
+                actionText: 'See All',
+              ),
+            ),
+
+            // 4. Products Grid - Rebuilds ONLY when product list changes
+            Selector<ProductProvider, List<ProductModel>>(
+              selector: (_, p) => p.products,
+              builder: (context, products, _) {
+                return SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
                   sliver: SliverGrid(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2, // Responsive: Use LayoutBuilder for web
+                      crossAxisCount: 2,
                       childAspectRatio: 0.8,
                       crossAxisSpacing: AppTheme.spacingM,
                       mainAxisSpacing: AppTheme.spacingM,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                        final product = provider.products[index];
+                        final product = products[index];
                         return ProductCard(
                           product: product,
                           heroTagSuffix: '_grid_$index',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ProductDetailsScreen(product: product),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(product: product))),
+                          onAddToCart: () {
+                            context.read<CartProvider>().addItem(product);
+                            final messenger = ScaffoldMessenger.of(context);
+                            messenger.clearSnackBars();
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text('${product.name} added to cart'),
+                                backgroundColor: AppColors.success,
+                                duration: const Duration(seconds: 1),
                               ),
                             );
                           },
-                          onAddToCart: () {
-                             context.read<CartProvider>().addItem(product);
-                             final messenger = ScaffoldMessenger.of(context);
-                             messenger.clearSnackBars();
-                             messenger.showSnackBar(
-                               SnackBar(
-                                 content: Text('${product.name} added to cart'),
-                                 backgroundColor: AppColors.success,
-                                 duration: const Duration(seconds: 1),
-                               ),
-                             );
-                          },
                         );
                       },
-                      childCount: provider.products.length,
+                      childCount: products.length,
+                      addAutomaticKeepAlives: false,
+                      addRepaintBoundaries: false,
                     ),
                   ),
-                ),
-                
-                const SliverToBoxAdapter(child: SizedBox(height: 100)), // Bottom padding
-              ],
+                );
+              },
             ),
-          );
-        },
+            
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
+        ),
       ),
     );
   }

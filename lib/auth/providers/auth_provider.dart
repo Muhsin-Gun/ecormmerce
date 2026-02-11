@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 import '../../core/constants/constants.dart';
@@ -49,6 +51,70 @@ class AuthProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _setError(e.toString());
+      _setLoading(false);
+      return false;
+    }
+  }
+
+  /// 🔐 GOOGLE SIGN-IN
+  Future<bool> signInWithGoogle() async {
+    _setLoading(true);
+    _clearError();
+    try {
+      // Configure Google Sign In for web
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        clientId: '419781318218-kui6dsjb3cn0gna1h62tpmd34vckoh0g.apps.googleusercontent.com',
+      );
+
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      
+      if (googleUser == null) {
+        _setLoading(false);
+        return false; // User cancelled
+      }
+
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // Create a new credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Sign in to Firebase with the Google credential
+      final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final user = userCredential.user!;
+      
+      // Check if user profile exists in Firestore
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      
+      if (!userDoc.exists) {
+        // Create new user profile
+        final newUser = UserModel(
+          userId: user.uid,
+          email: user.email!,
+          name: user.displayName ?? 'User',
+          phone: user.phoneNumber ?? '',
+          role: AppConstants.roleClient,
+          roleStatus: AppConstants.roleStatusApproved,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          isRoot: false,
+        );
+        
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set(newUser.toMap());
+        _userModel = newUser;
+      } else {
+        // Load existing user profile
+        _userModel = UserModel.fromFirestore(userDoc);
+      }
+      
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _setError('Google Sign-In failed: ${e.toString()}');
       _setLoading(false);
       return false;
     }
