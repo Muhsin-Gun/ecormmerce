@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -10,6 +9,7 @@ import '../../shared/screens/conversation_list_screen.dart';
 import '../../shared/providers/cart_provider.dart';
 import '../../shared/providers/product_provider.dart';
 import '../../shared/widgets/category_chip.dart';
+import '../../shared/widgets/optimized_network_image.dart';
 import '../../shared/widgets/product_card.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/skeleton_loader.dart';
@@ -38,9 +38,6 @@ class _HomeTabState extends State<HomeTab> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final size = MediaQuery.of(context).size;
-    
     return Scaffold(
       appBar: AppBar(
         title: const Text('ProMarket'),
@@ -92,6 +89,7 @@ class _HomeTabState extends State<HomeTab> {
           return RefreshIndicator(
             onRefresh: () async => await provider.refresh(),
             child: CustomScrollView(
+              cacheExtent: 1200,
               slivers: [
                 // 1. Featured Carousel
                 if (provider.featuredProducts.isNotEmpty)
@@ -284,10 +282,11 @@ class _HomeTabState extends State<HomeTab> {
         fit: StackFit.expand,
         children: [
           if (hasImage)
-            CachedNetworkImage(
+            OptimizedNetworkImage(
               imageUrl: product.mainImage,
               fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => Container(
+              memCacheWidth: (720 * MediaQuery.of(context).devicePixelRatio).round(),
+              errorWidget: Container(
                 color: Colors.grey.shade300,
                 child: const Center(child: Icon(Icons.broken_image_outlined)),
               ),

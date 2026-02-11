@@ -7,9 +7,24 @@ class WishlistProvider extends ChangeNotifier {
   final FirebaseService _firebaseService = FirebaseService.instance;
   List<ProductModel> _wishlistItems = [];
   bool _isLoading = false;
+  String? _loadedUserId;
 
   List<ProductModel> get wishlistItems => _wishlistItems;
   bool get isLoading => _isLoading;
+
+  Future<void> ensureLoadedForUser(String? userId) async {
+    if (userId == null) {
+      if (_wishlistItems.isNotEmpty || _loadedUserId != null) {
+        _wishlistItems = [];
+        _loadedUserId = null;
+        notifyListeners();
+      }
+      return;
+    }
+
+    if (_loadedUserId == userId || _isLoading) return;
+    await loadWishlist();
+  }
 
   Future<void> loadWishlist() async {
     final userId = _firebaseService.currentUserId;
@@ -40,6 +55,7 @@ class WishlistProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error loading wishlist: $e');
     } finally {
+      _loadedUserId = userId;
       _isLoading = false;
       notifyListeners();
     }

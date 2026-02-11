@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
@@ -19,6 +18,7 @@ import '../../shared/providers/wishlist_provider.dart';
 import '../../shared/screens/chat_screen.dart';
 import '../../shared/services/firebase_service.dart';
 import '../../shared/widgets/auth_button.dart';
+import '../../shared/widgets/optimized_network_image.dart';
 import '../../shared/widgets/product_card.dart';
 import '../../main.dart';
 
@@ -150,12 +150,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       final imageUrl = entry.value;
                       return Hero(
                         tag: 'product_image_${widget.product.productId}_$index',
-                        child: CachedNetworkImage(
+                        child: OptimizedNetworkImage(
                           imageUrl: imageUrl,
                           fit: BoxFit.cover,
                           width: double.infinity,
-                          placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                          errorWidget: (context, url, error) => const Icon(Icons.broken_image),
+                          memCacheWidth: (1200 * MediaQuery.of(context).devicePixelRatio).round(),
+                          placeholder: const Center(
+                            child: SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                          errorWidget: const Icon(Icons.broken_image),
                         ),
                       );
                     }).toList(),

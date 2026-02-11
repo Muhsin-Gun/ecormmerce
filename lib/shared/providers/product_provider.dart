@@ -13,6 +13,7 @@ class ProductProvider extends ChangeNotifier {
   List<ProductModel> _featuredProducts = [];
   List<ProductModel> _relatedProducts = [];
   List<String> _recentlyViewedIds = [];
+  Set<String> _recentlyViewedIdsSet = {};
   ProductModel? _selectedProduct;
 
   bool _isLoading = false;
@@ -32,7 +33,8 @@ class ProductProvider extends ChangeNotifier {
   List<ProductModel> get allProducts => _products;
   List<ProductModel> get featuredProducts => _featuredProducts;
   List<ProductModel> get relatedProducts => _relatedProducts;
-  List<ProductModel> get recentlyViewedProducts => _products.where((p) => _recentlyViewedIds.contains(p.productId)).toList();
+  List<ProductModel> get recentlyViewedProducts =>
+      _products.where((p) => _recentlyViewedIdsSet.contains(p.productId)).toList();
   ProductModel? get selectedProduct => _selectedProduct;
 
   bool get isLoading => _isLoading;
@@ -157,6 +159,7 @@ class ProductProvider extends ChangeNotifier {
       if (_recentlyViewedIds.length > 10) {
         _recentlyViewedIds.removeLast();
       }
+      _recentlyViewedIdsSet = _recentlyViewedIds.toSet();
       notifyListeners();
     }
   }
@@ -258,6 +261,8 @@ class ProductProvider extends ChangeNotifier {
       return true;
     }).toList();
 
+    _sortFilteredProducts(_currentSortBy);
+
     notifyListeners();
   }
 
@@ -266,6 +271,12 @@ class ProductProvider extends ChangeNotifier {
   /// Sort products
   void sortProducts(String sortBy) {
     _currentSortBy = sortBy;
+    _sortFilteredProducts(sortBy);
+
+    notifyListeners();
+  }
+
+  void _sortFilteredProducts(String sortBy) {
     switch (sortBy) {
       case 'name_asc':
         _filteredProducts.sort((a, b) => a.name.compareTo(b.name));
@@ -288,8 +299,6 @@ class ProductProvider extends ChangeNotifier {
       default:
         break;
     }
-
-    notifyListeners();
   }
 
   // ==================== ADMIN OPERATIONS ====================
