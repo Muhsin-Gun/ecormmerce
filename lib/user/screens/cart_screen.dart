@@ -10,7 +10,9 @@ import '../../shared/widgets/cart_item_widget.dart'; // Assumed existing or will
 import 'checkout_screen.dart';
 
 class CartScreen extends StatelessWidget {
-  const CartScreen({super.key});
+  final VoidCallback? onStartShopping;
+
+  const CartScreen({super.key, this.onStartShopping});
 
   @override
   Widget build(BuildContext context) {
@@ -48,13 +50,13 @@ class CartScreen extends StatelessWidget {
                   const SizedBox(height: AppTheme.spacingL),
                   OutlinedButton(
                     onPressed: () {
-                      // Navigate back to home/products safely
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      } else {
-                        // If cart was opened directly, go to first route (home)
-                        Navigator.of(context).popUntil((route) => route.isFirst);
+                      if (onStartShopping != null) {
+                        onStartShopping!();
+                        return;
                       }
+
+                      // Fallback for pushed cart screens.
+                      Navigator.of(context).popUntil((route) => route.isFirst);
                     },
                     child: const Text('Start Shopping'),
                   ),

@@ -188,8 +188,8 @@ class DataSeeder {
         'isActive': true,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'averageRating': 4.0 + (name.length % 10) / 10.0,
-        'reviewCount': 5 + (name.length % 20),
+        'averageRating': 0.0,
+        'reviewCount': 0,
         'images': [mainImage],
         'tags': [category, 'New'],
       });

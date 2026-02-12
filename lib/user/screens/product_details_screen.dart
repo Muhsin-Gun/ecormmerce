@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -12,11 +11,8 @@ import '../../shared/providers/cart_provider.dart';
 import '../../shared/providers/review_provider.dart';
 import '../../shared/widgets/review_card.dart';
 import '../../shared/widgets/section_header.dart';
-import '../../shared/providers/message_provider.dart';
 import '../../shared/providers/product_provider.dart';
 import '../../shared/providers/wishlist_provider.dart';
-import '../../shared/screens/chat_screen.dart';
-import '../../shared/services/firebase_service.dart';
 import '../../shared/widgets/auth_button.dart';
 import '../../shared/widgets/optimized_network_image.dart';
 import '../../shared/widgets/product_card.dart';
@@ -66,9 +62,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           onPressed: () {
             // Use navigatorKey to avoid using stale context if widget is disposed
             ProMarketApp.navigatorKey.currentState?.popUntil((route) => route.isFirst);
-            ProMarketApp.navigatorKey.currentState?.pushNamed('/cart'); // Assuming cart route exists or logic to switch tab
-            // For now, popping to first route is safer as we don't have named routes setup verified
-            // Alternatively, find a way to switch tab
           },
         ),
       ),
@@ -85,6 +78,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             : widget.product.images)
         .where((url) => url.isNotEmpty)
         .toList();
+    final reviewProvider = context.watch<ReviewProvider>();
+    final ratingCount = reviewProvider.reviewCountFor(widget.product.productId);
+    final rating = reviewProvider.averageRatingFor(widget.product.productId);
 
     return Scaffold(
       body: CustomScrollView(
@@ -228,14 +224,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                               const Icon(Icons.star, size: 16, color: AppColors.warning),
                               const SizedBox(width: 4),
                               Text(
-                                widget.product.averageRating.toString(),
+                                ratingCount == 0 ? 'New' : rating.toStringAsFixed(1),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.warning,
                                 ),
                               ),
                               Text(
-                                ' (${widget.product.reviewCount})',
+                                ratingCount == 0 ? ' (0)' : ' ($ratingCount)',
                                 style: TextStyle(
                                   color: isDark ? AppColors.gray400 : AppColors.gray600,
                                   fontSize: 12,
@@ -329,7 +325,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     const SizedBox(height: AppTheme.spacingL),
 
                     // Reviews Section
-                    const SectionHeader(title: 'Reviews', actionText: 'See All'),
+                    const SectionHeader(title: 'Reviews & Comments'),
                     Consumer<ReviewProvider>(
                       builder: (context, reviewProvider, child) {
                         if (reviewProvider.isLoading) {
@@ -340,11 +336,21 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           return Center(
                             child: Padding(
                               padding: const EdgeInsets.all(AppTheme.spacingL),
-                              child: Text(
-                                'No reviews yet',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.gray500,
-                                ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    'No reviews yet. Be the first to comment.',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: AppColors.gray500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextButton.icon(
+                                    onPressed: () => _showAddReviewDialog(context),
+                                    icon: const Icon(Icons.rate_review_outlined),
+                                    label: const Text('Write a Review'),
+                                  ),
+                                ],
                               ),
                             ),
                           );

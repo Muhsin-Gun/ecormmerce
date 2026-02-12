@@ -25,6 +25,12 @@ class ConversationListScreen extends StatelessWidget {
         title: const Text('Messages'),
         centerTitle: true,
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => SupportUtils.startSupportChat(context, forceNew: true),
+        backgroundColor: AppColors.electricPurple,
+        icon: const Icon(Icons.support_agent, color: Colors.white),
+        label: const Text('New Chat', style: TextStyle(color: Colors.white)),
+      ),
       body: StreamBuilder<List<ConversationModel>>(
         stream: messageProvider.streamConversations(currentUser?.uid ?? ''),
         builder: (context, snapshot) {
@@ -61,7 +67,7 @@ class ConversationListScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
-                    onPressed: () => SupportUtils.startSupportChat(context),
+                    onPressed: () => SupportUtils.startSupportChat(context, forceNew: true),
                     icon: const Icon(Icons.support_agent),
                     label: const Text('Contact Support'),
                     style: ElevatedButton.styleFrom(
@@ -78,8 +84,7 @@ class ConversationListScreen extends StatelessWidget {
 
           final conversations = snapshot.data!;
 
-          return Scaffold(
-            body: ListView.separated(
+          return ListView.separated(
               padding: const EdgeInsets.all(AppTheme.spacingM),
               itemCount: conversations.length,
               separatorBuilder: (context, index) => const Divider(height: 1),
@@ -87,12 +92,10 @@ class ConversationListScreen extends StatelessWidget {
                 final conversation = conversations[index];
                 
                 // Find other participant
-                String otherUserId = '';
                 String otherUserName = 'Unknown';
                 
                 for (final id in conversation.participants) {
                   if (id != currentUser?.uid) {
-                    otherUserId = id;
                     otherUserName = conversation.participantNames[id] ?? 'Unknown';
                     break;
                   }
@@ -215,14 +218,7 @@ class ConversationListScreen extends StatelessWidget {
                  .fadeIn(delay: (100 * index).ms)
                  .slideX(begin: 0.1, curve: Curves.easeOutQuad);
               },
-            ),
-            floatingActionButton: FloatingActionButton.extended(
-              onPressed: () => SupportUtils.startSupportChat(context),
-              backgroundColor: AppColors.electricPurple,
-              icon: const Icon(Icons.support_agent, color: Colors.white),
-              label: const Text('New Chat', style: TextStyle(color: Colors.white)),
-            ),
-          );
+            );
         },
       ),
     );

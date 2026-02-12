@@ -37,7 +37,18 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   @override
+  void dispose() {
+    _currentCarouselIndex.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWebLike = screenWidth >= 900;
+    final gridCrossAxisCount = isWebLike ? 4 : (screenWidth >= 600 ? 3 : 2);
+    final gridAspectRatio = isWebLike ? 0.86 : (screenWidth >= 600 ? 0.82 : 0.74);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('ProMarket'),
@@ -107,7 +118,7 @@ class _HomeTabState extends State<HomeTab> {
                       const SizedBox(height: AppTheme.spacingM),
                       CarouselSlider(
                         options: CarouselOptions(
-                          height: 180,
+                          height: screenWidth >= 900 ? 220 : 180,
                           viewportFraction: 0.9,
                           enlargeCenterPage: true,
                           autoPlay: true,
@@ -152,7 +163,7 @@ class _HomeTabState extends State<HomeTab> {
                     children: [
                       const SectionHeader(title: 'Recently Viewed'),
                       SizedBox(
-                        height: 220,
+                        height: screenWidth >= 900 ? 250 : 220,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
@@ -232,11 +243,11 @@ class _HomeTabState extends State<HomeTab> {
                 return SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
                   sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.8,
-                      crossAxisSpacing: AppTheme.spacingM,
-                      mainAxisSpacing: AppTheme.spacingM,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: gridCrossAxisCount,
+                      childAspectRatio: gridAspectRatio,
+                      crossAxisSpacing: screenWidth >= 600 ? AppTheme.spacingL : AppTheme.spacingM,
+                      mainAxisSpacing: screenWidth >= 600 ? AppTheme.spacingL : AppTheme.spacingM,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {

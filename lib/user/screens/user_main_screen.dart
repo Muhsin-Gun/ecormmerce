@@ -16,11 +16,11 @@ class UserMainScreen extends StatefulWidget {
 class _UserMainScreenState extends State<UserMainScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = const [
-    HomeTab(),
-    SearchTab(),
-    CartScreen(),
-    ProfileTab(),
+  List<Widget> get _screens => [
+    const HomeTab(),
+    const SearchTab(),
+    CartScreen(onStartShopping: () => _onItemTapped(0)),
+    const ProfileTab(),
   ];
 
   void _onItemTapped(int index) {

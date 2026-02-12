@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/screens/order_management_screen.dart';
 import '../../admin/screens/admin_products_tab.dart'; // Employees can also manage inventory
+import '../../shared/screens/chat_list_screen.dart';
 
 class EmployeeDashboardScreen extends StatelessWidget {
   const EmployeeDashboardScreen({super.key});
@@ -90,8 +91,10 @@ class EmployeeDashboardScreen extends StatelessWidget {
                   icon: Icons.chat,
                   color: AppColors.success,
                   onTap: () {
-                    // Navigate to Messenger
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening Customer Support Messenger...')));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ChatListScreen()),
+                    );
                   },
                 ),
                 _buildToolCard(

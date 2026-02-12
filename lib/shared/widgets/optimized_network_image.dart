@@ -24,17 +24,41 @@ class OptimizedNetworkImage extends StatelessWidget {
     this.placeholder,
   });
 
+  String _optimizedImageUrl() {
+    if (imageUrl.isEmpty) return imageUrl;
+
+    final uri = Uri.tryParse(imageUrl);
+    if (uri == null) return imageUrl;
+
+    // Unsplash supports query-based transforms.
+    if (uri.host.contains('images.unsplash.com')) {
+      final targetWidth = memCacheWidth ?? maxWidthDiskCacheDefault;
+      final qp = Map<String, String>.from(uri.queryParameters)
+        ..putIfAbsent('auto', () => 'format')
+        ..putIfAbsent('fit', () => 'crop')
+        ..putIfAbsent('q', () => '75')
+        ..putIfAbsent('w', () => '$targetWidth');
+      return uri.replace(queryParameters: qp).toString();
+    }
+
+    return imageUrl;
+  }
+
+  static const int maxWidthDiskCacheDefault = 900;
+
   @override
   Widget build(BuildContext context) {
+    final optimizedUrl = _optimizedImageUrl();
+
     return CachedNetworkImage(
-      imageUrl: imageUrl,
+      imageUrl: optimizedUrl,
       fit: fit,
       width: width,
       height: height,
       memCacheWidth: memCacheWidth,
       memCacheHeight: memCacheHeight,
       maxHeightDiskCache: 800,
-      maxWidthDiskCache: 800,
+      maxWidthDiskCache: maxWidthDiskCacheDefault,
       filterQuality: FilterQuality.none, // Fastest rendering
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,

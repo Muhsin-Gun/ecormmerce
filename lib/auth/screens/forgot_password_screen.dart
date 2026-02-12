@@ -27,14 +27,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Future<void> _resetPassword() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     FocusScope.of(context).unfocus();
-    
+
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.sendPasswordResetEmail(
       _emailController.text.trim(),
     );
-    
+
     if (success && mounted) {
       setState(() => _emailSent = true);
     } else if (mounted && authProvider.errorMessage != null) {
@@ -66,7 +66,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: AppTheme.spacingL),
-                
                 Container(
                   padding: const EdgeInsets.all(AppTheme.spacingXL),
                   decoration: BoxDecoration(
@@ -80,8 +79,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ),
                 ),
                 const SizedBox(height: AppTheme.spacingXL),
-                
-                if (_emailSent) ...[\
+                if (_emailSent) ...[
                   Text(
                     'Check your email',
                     style: theme.textTheme.headlineSmall?.copyWith(
@@ -117,7 +115,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                   ),
                   const SizedBox(height: AppTheme.spacingXL),
-                  
                   Form(
                     key: _formKey,
                     child: Column(

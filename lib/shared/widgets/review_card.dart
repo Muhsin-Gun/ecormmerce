@@ -114,8 +114,6 @@ class ReviewCard extends StatelessWidget {
               height: 1.5,
               fontSize: 13,
             ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

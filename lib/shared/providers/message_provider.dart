@@ -129,33 +129,37 @@ class MessageProvider extends ChangeNotifier {
   /// Create a new conversation or get existing one
   Future<String> startConversation({
     required String currentUserId,
+    required String currentUserName,
     required String otherUserId,
     required String otherUserName,
     required String otherUserRole,
+    bool forceNew = false,
   }) async {
     try {
-      // Check if conversation already exists
-      final querySnapshot = await _firebaseService.getCollection(
-        AppConstants.conversationsCollection,
-        queryBuilder: (query) => query
-            .where('participants', arrayContains: currentUserId),
-      );
+      if (!forceNew) {
+        // Reuse existing conversation between the same participants.
+        final querySnapshot = await _firebaseService.getCollection(
+          AppConstants.conversationsCollection,
+          queryBuilder: (query) => query
+              .where('participants', arrayContains: currentUserId),
+        );
 
-      final duplicateDocs = querySnapshot.docs.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        final participants = List<String>.from(data['participants'] ?? []);
-        return participants.contains(otherUserId);
-      });
+        final duplicateDocs = querySnapshot.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final participants = List<String>.from(data['participants'] ?? []);
+          return participants.contains(otherUserId);
+        });
 
-      if (duplicateDocs.isNotEmpty) {
-        return duplicateDocs.first.id;
+        if (duplicateDocs.isNotEmpty) {
+          return duplicateDocs.first.id;
+        }
       }
       
       final conversation = ConversationModel(
         id: '', // Will be set by Firestore
         participants: [currentUserId, otherUserId],
         participantNames: {
-          currentUserId: 'You',
+          currentUserId: currentUserName,
           otherUserId: otherUserName,
         },
         lastMessage: null,

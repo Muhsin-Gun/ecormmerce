@@ -27,15 +27,15 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    // Static cache size for maximum performance (optimized for 2x displays)
-    const imageCacheSize = 640;
+    // Balanced decode size for faster scrolling on mobile/web grids.
+    const imageCacheSize = 420;
     const borderRadius = BorderRadius.vertical(top: Radius.circular(AppTheme.radiusMedium));
 
     return RepaintBoundary(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: isCompact ? 150 : 180,
+          width: isCompact ? 150 : double.infinity,
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkCard : AppColors.lightCard,
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),

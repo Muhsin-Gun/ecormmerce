@@ -7,7 +7,10 @@ import '../../shared/screens/chat_screen.dart';
 import '../../shared/services/firebase_service.dart';
 
 class SupportUtils {
-  static Future<void> startSupportChat(BuildContext context) async {
+  static Future<void> startSupportChat(
+    BuildContext context, {
+    bool forceNew = false,
+  }) async {
     final auth = context.read<AuthProvider>();
     if (!auth.isAuthenticated) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -51,9 +54,11 @@ class SupportUtils {
 
       final conversationId = await context.read<MessageProvider>().startConversation(
         currentUserId: auth.firebaseUser!.uid,
+        currentUserName: auth.userModel?.name ?? auth.firebaseUser?.displayName ?? 'User',
         otherUserId: otherUserId,
         otherUserName: otherUserName,
         otherUserRole: 'admin',
+        forceNew: forceNew,
       );
 
       if (context.mounted) Navigator.pop(context); // Remove loading
