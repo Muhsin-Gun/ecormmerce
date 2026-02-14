@@ -27,9 +27,7 @@ class SettingsScreen extends StatelessWidget {
             title: const Text('Dark Mode'),
             subtitle: const Text('Enable a darker color scheme'),
             value: themeProvider.isDarkMode,
-            onChanged: (value) {
-              themeProvider.setThemeMode(value);
-            },
+            onChanged: themeProvider.setThemeMode,
             secondary: Icon(
               isDark ? Icons.dark_mode : Icons.light_mode,
               color: AppColors.electricPurple,
@@ -51,29 +49,6 @@ class SettingsScreen extends StatelessWidget {
               Icons.notifications_active_outlined,
               color: AppColors.electricPurple,
             ),
-          ),
-          
-          _buildSectionHeader(context, 'Account Privacy'),
-          ListTile(
-            title: const Text('Blocked Users'),
-            trailing: const Icon(Icons.chevron_right),
-            leading: const Icon(Icons.block, color: AppColors.error),
-            onTap: () {
-              // Navigate to blocked users screen
-            },
-          ),
-          
-          _buildSectionHeader(context, 'Data & Storage'),
-          ListTile(
-            title: const Text('Clear Cache'),
-            subtitle: const Text('Free up space by removing temporary files'),
-            leading: const Icon(Icons.delete_outline, color: AppColors.gray500),
-            onTap: () {
-              // Clear cache logic
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Cache cleared successfully')),
-              );
-            },
           ),
           
           _buildSectionHeader(context, 'About ProMarket'),
