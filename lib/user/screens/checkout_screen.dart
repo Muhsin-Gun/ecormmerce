@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -12,8 +11,8 @@ import '../../shared/widgets/auth_button.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/services/mpesa_service.dart';
 import 'order_success_screen.dart';
-import '../../shared/models/payment_model.dart';
 import '../../core/utils/app_error_reporter.dart';
+import '../../core/utils/app_feedback.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -112,17 +111,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                  'paymentStatus': 'failed',
                  'updatedAt': DateTime.now().toIso8601String(),
                },
-             );
-             if (!mounted) return;
-             ScaffoldMessenger.of(context).showSnackBar(
-               SnackBar(
-                 content: Text('Payment initiation failed: ${mpesaResponse['error']}. Check API Keys.'),
-                 backgroundColor: AppColors.error,
-                 duration: const Duration(seconds: 5),
-               ),
-             );
-             return;
-           }
+              );
+              if (!mounted) return;
+              AppFeedback.error(
+                context,
+                mpesaResponse['error'] ?? 'Payment initiation failed.',
+                nextStep: 'Retry or choose another payment method.',
+              );
+              return;
+            }
 
            await FirebaseService.instance.updateDocument(
              'orders',
@@ -145,17 +142,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                'paymentStatus': 'failed',
                'updatedAt': DateTime.now().toIso8601String(),
              },
-           );
-           if (!mounted) return;
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(
-               content: Text('M-Pesa Error: $e. Check API Keys.'),
-               backgroundColor: AppColors.error,
-               duration: const Duration(seconds: 5),
-             ),
-           );
-           return;
-         }
+            );
+            if (!mounted) return;
+            AppFeedback.error(
+              context,
+              e,
+              fallbackMessage: 'Payment request failed.',
+              nextStep: 'Retry in a moment.',
+            );
+            return;
+          }
       }
 
       // Create Pending Transaction Record
@@ -188,8 +184,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     } catch (e) {
       await AppErrorReporter.report(e, null);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Order failed: $e'), backgroundColor: AppColors.error),
+        AppFeedback.error(
+          context,
+          e,
+          fallbackMessage: 'Order failed.',
+          nextStep: 'Please retry checkout.',
         );
       }
     } finally {

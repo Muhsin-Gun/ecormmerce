@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_feedback.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../shared/services/firebase_service.dart';
@@ -62,9 +62,11 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (snapshot.hasError) {
-                   return Center(child: Text('Error: ${snapshot.error}'));
-                }
+                 if (snapshot.hasError) {
+                   return const Center(
+                     child: Text('Could not load orders right now.'),
+                   );
+                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return Center(
@@ -177,9 +179,14 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
   Future<void> _updateOrderStatus(String orderId, String newStatus) async {
     try {
       await FirebaseService.instance.updateDocument('orders', orderId, {'status': newStatus});
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Order updated to $newStatus')));
+      AppFeedback.success(context, 'Order updated to $newStatus');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      AppFeedback.error(
+        context,
+        e,
+        fallbackMessage: 'Could not update order.',
+        nextStep: 'Please retry.',
+      );
     }
   }
 

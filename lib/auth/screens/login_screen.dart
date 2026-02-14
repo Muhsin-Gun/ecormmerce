@@ -1,14 +1,17 @@
+﻿import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_feedback.dart';
 import '../../core/utils/validators.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
+import 'email_otp_verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,6 +24,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _isGoogleLoading = false;
+  String? _oauthInlineError;
   
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -60,28 +65,106 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     FocusScope.of(context).unfocus();
     
     final authProvider = context.read<AuthProvider>();
+    final email = _emailController.text.trim();
     final success = await authProvider.login(
-      email: _emailController.text.trim(),
+      email: email,
       password: _passwordController.text,
     );
     
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Welcome back!'),
-          backgroundColor: AppColors.success,
+      AppFeedback.success(context, 'Welcome back!');
+      return;
+    }
+
+    if (!mounted) return;
+
+    final pendingEmail = authProvider.pendingVerificationEmail;
+    if (pendingEmail != null && pendingEmail.isNotEmpty) {
+      final pendingName = authProvider.pendingVerificationName ?? '';
+      bool otpSent = false;
+      try {
+        otpSent = await authProvider
+            .sendOTPtoEmail(
+              email: pendingEmail,
+              userName: pendingName,
+            )
+            .timeout(const Duration(seconds: 12));
+      } on TimeoutException {
+        otpSent = false;
+      }
+      if (!mounted) return;
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => EmailOTPVerificationScreen(
+            email: pendingEmail,
+            userName: pendingName,
+            initialCodeSent: otpSent,
+          ),
         ),
       );
-    } else if (mounted && authProvider.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(authProvider.errorMessage!),
-          backgroundColor: AppColors.error,
-        ),
+      return;
+    }
+
+    if (authProvider.errorMessage != null) {
+      AppFeedback.error(
+        context,
+        authProvider.errorMessage!,
+        nextStep: 'Please retry.',
       );
     }
   }
 
+  Future<void> _signInWithGoogle({bool useAnotherAccount = false}) async {
+    final auth = context.read<AuthProvider>();
+    setState(() {
+      _isGoogleLoading = true;
+      _oauthInlineError = null;
+    });
+
+    try {
+      if (useAnotherAccount) {
+        await auth.logVerificationEvent(
+          eventName: 'oauth_switch_account',
+          email: _emailController.text.trim().isEmpty
+              ? 'unknown@example.com'
+              : _emailController.text.trim(),
+        );
+        await auth.prepareGoogleAccountSwitch();
+      }
+
+      final success = await auth.signInWithGoogle(
+        forceAccountChooser: useAnotherAccount,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _isGoogleLoading = false;
+      });
+
+      if (success) {
+        AppFeedback.success(context, 'Welcome! Signed in with Google');
+      } else {
+        final msg = auth.errorMessage ??
+            'Could not complete Google sign-in. Retry or use another account.';
+        setState(() {
+          _oauthInlineError = msg;
+        });
+        AppFeedback.error(context, msg);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isGoogleLoading = false;
+        _oauthInlineError = AppFeedback.friendlyError(e);
+      });
+      AppFeedback.error(
+        context,
+        _oauthInlineError!,
+        nextStep: 'Retry or choose another account.',
+      );
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -116,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         Container(
                           padding: const EdgeInsets.all(AppTheme.spacingM),
                           decoration: BoxDecoration(
-                            color: AppColors.electricPurple.withOpacity(0.1),
+                            color: AppColors.electricPurple.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -229,29 +312,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                       
                                       const SizedBox(height: AppTheme.spacingL),
                                       
-                                      // Google Sign-In Button (Standard Design)
-                                      SizedBox(
-                                        width: double.infinity,
-                                        height: 56,
-                                        child: OutlinedButton(
-                                          onPressed: auth.isLoading ? null : () async {
-                                            final success = await auth.signInWithGoogle();
-                                            if (success && mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text('Welcome! Signed in with Google'),
-                                                  backgroundColor: AppColors.success,
-                                                ),
-                                              );
-                                            } else if (mounted && auth.errorMessage != null) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(auth.errorMessage!),
-                                                  backgroundColor: AppColors.error,
-                                                ),
-                                              );
-                                            }
-                                          },
+                                       // Google Sign-In Button (Standard Design)
+                                       SizedBox(
+                                         width: double.infinity,
+                                         height: 56,
+                                         child: OutlinedButton(
+                                          onPressed: (auth.isLoading || _isGoogleLoading)
+                                              ? null
+                                              : _signInWithGoogle,
                                           style: OutlinedButton.styleFrom(
                                             backgroundColor: isDark ? AppColors.darkCard : Colors.white,
                                             side: BorderSide(
@@ -275,7 +343,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                                   borderRadius: BorderRadius.circular(2),
                                                   boxShadow: [
                                                     BoxShadow(
-                                                      color: Colors.black.withOpacity(0.1),
+                                                      color: Colors.black.withValues(alpha: 0.1),
                                                       blurRadius: 2,
                                                       offset: const Offset(0, 1),
                                                     ),
@@ -304,6 +372,56 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                             ],
                                           ),
                                         ),
+                                       ),
+                                      const SizedBox(height: AppTheme.spacingM),
+                                      if (_oauthInlineError != null)
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(AppTheme.spacingM),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.error.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: AppColors.error),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                _oauthInlineError!,
+                                                style: theme.textTheme.bodySmall?.copyWith(
+                                                  color: AppColors.error,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Wrap(
+                                                spacing: 8,
+                                                children: [
+                                                  TextButton(
+                                                    onPressed: _isGoogleLoading
+                                                        ? null
+                                                        : _signInWithGoogle,
+                                                    child: const Text('Retry'),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: _isGoogleLoading
+                                                        ? null
+                                                        : () => _signInWithGoogle(
+                                                            useAnotherAccount: true),
+                                                    child: const Text('Sign in with another account'),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      TextButton(
+                                        onPressed: _isGoogleLoading
+                                            ? null
+                                            : () => _signInWithGoogle(
+                                                  useAnotherAccount: true,
+                                                ),
+                                        child: const Text('Sign in with another account'),
                                       ),
                                     ],
                                   );

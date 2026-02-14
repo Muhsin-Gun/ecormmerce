@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_feedback.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/services/firebase_service.dart';
 
@@ -139,11 +140,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     try {
       await FirebaseService.instance.updateDocument('users', userId, data);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User updated')));
+        AppFeedback.success(context, 'User updated');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        AppFeedback.error(
+          context,
+          e,
+          fallbackMessage: 'Could not update user.',
+          nextStep: 'Please retry.',
+        );
       }
     }
   }

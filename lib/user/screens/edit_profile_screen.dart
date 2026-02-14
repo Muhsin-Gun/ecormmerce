@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_feedback.dart';
 import '../../shared/services/firebase_service.dart';
 import '../../shared/services/cloudinary_service.dart';
 import '../../shared/widgets/auth_button.dart';
@@ -53,8 +54,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() => _profileImageUrl = url);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Photo upload failed: $e'), backgroundColor: AppColors.error),
+        AppFeedback.error(
+          context,
+          e,
+          fallbackMessage: 'Photo upload failed.',
+          nextStep: 'Try a different image.',
         );
       }
     } finally {
@@ -76,14 +80,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully'), backgroundColor: AppColors.success),
-        );
+        AppFeedback.success(context, 'Profile updated successfully');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+        AppFeedback.error(
+          context,
+          e,
+          fallbackMessage: 'Could not update profile.',
+          nextStep: 'Please retry.',
         );
       }
     } finally {

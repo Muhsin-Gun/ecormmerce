@@ -6,6 +6,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../shared/services/firebase_service.dart';
 import '../../auth/models/user_model.dart';
 import '../../core/constants/constants.dart';
+import '../../core/utils/app_feedback.dart';
 import 'package:uuid/uuid.dart';
 
 class AddressScreen extends StatelessWidget {
@@ -210,7 +211,12 @@ class AddressScreen extends StatelessWidget {
       // In this app, AuthProvider loads data once and provides it. 
       // I should check if AuthProvider has a refresh method or if it uses streams.
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      AppFeedback.error(
+        context,
+        e,
+        fallbackMessage: 'Could not update addresses.',
+        nextStep: 'Please retry.',
+      );
     }
   }
 }

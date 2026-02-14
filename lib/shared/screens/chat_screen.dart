@@ -4,12 +4,12 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_feedback.dart';
 import '../services/cloudinary_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/message_model.dart';
 import '../providers/message_provider.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
-import 'package:flutter/foundation.dart' as foundation;
 import 'package:cached_network_image/cached_network_image.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -61,8 +61,11 @@ class _ChatScreenState extends State<ChatScreen> {
       _scrollToBottom();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+        AppFeedback.error(
+          context,
+          e,
+          fallbackMessage: 'Could not send message.',
+          nextStep: 'Please retry.',
         );
       }
     }
@@ -90,8 +93,11 @@ class _ChatScreenState extends State<ChatScreen> {
       _scrollToBottom();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Image failed: $e'), backgroundColor: AppColors.error),
+        AppFeedback.error(
+          context,
+          e,
+          fallbackMessage: 'Image upload failed.',
+          nextStep: 'Try again.',
         );
       }
     } finally {

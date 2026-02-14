@@ -3,6 +3,8 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const axios = require('axios');
 const admin = require('firebase-admin');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 // Initialize Firebase Admin SDK
 // Note: This requires GOOGLE_APPLICATION_CREDENTIALS env var or gcloud login
@@ -29,6 +31,24 @@ const MPESA_CONFIG = {
     baseUrl: 'https://sandbox.safaricom.co.ke'
 };
 
+const OTP_CONFIG = {
+    ttlMs: 5 * 60 * 1000,
+    resendCooldownsMs: [30 * 1000, 60 * 1000, 120 * 1000],
+    maxResendsPerSession: 3,
+    maxAttempts: 5,
+    collection: 'email_verifications',
+    analyticsCollection: 'verification_analytics',
+};
+
+const EMAIL_CONFIG = {
+    host: process.env.SMTP_HOST || '',
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: String(process.env.SMTP_SECURE || 'false').toLowerCase() === 'true',
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.MAIL_FROM || process.env.SMTP_USER || '',
+};
+
 // --- HELPERS ---
 const getAccessToken = async () => {
     const credentials = Buffer.from(`${MPESA_CONFIG.consumerKey}:${MPESA_CONFIG.consumerSecret}`).toString('base64');
@@ -52,7 +72,329 @@ const normalizePhoneNumber = (phoneNumber) => {
     return formattedPhone;
 };
 
+const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
+const emailLooksValid = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const nowMs = () => Date.now();
+const generateOtp = () => String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+const generateSalt = () => crypto.randomBytes(16).toString('hex');
+const hashOtp = (otp, salt) =>
+    crypto.createHash('sha256').update(`${otp}:${salt}`).digest('hex');
+const compareHash = (a, b) => {
+    const bufferA = Buffer.from(a);
+    const bufferB = Buffer.from(b);
+    return bufferA.length === bufferB.length && crypto.timingSafeEqual(bufferA, bufferB);
+};
+
+const otpCollection = () => admin.firestore().collection(OTP_CONFIG.collection);
+const otpAnalyticsCollection = () => admin.firestore().collection(OTP_CONFIG.analyticsCollection);
+const isAdminReady = () => admin.apps.length > 0;
+const getCooldownMs = (resendCount) => {
+    const idx = Math.min(Math.max(resendCount, 0), OTP_CONFIG.resendCooldownsMs.length - 1);
+    return OTP_CONFIG.resendCooldownsMs[idx];
+};
+const remainingResends = (resendCount) =>
+    Math.max(0, OTP_CONFIG.maxResendsPerSession - resendCount);
+
+const logOtpEvent = async (eventName, email, meta = {}) => {
+    if (!isAdminReady()) return;
+    try {
+        await otpAnalyticsCollection().add({
+            eventName,
+            email,
+            meta,
+            createdAtMs: nowMs(),
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    } catch (error) {
+        console.warn('otp analytics log failed:', error.message);
+    }
+};
+
+const ensureEmailConfig = () => {
+    if (!EMAIL_CONFIG.host || !EMAIL_CONFIG.user || !EMAIL_CONFIG.pass || !EMAIL_CONFIG.from) {
+        throw new Error('Email service is not configured (SMTP_HOST, SMTP_USER, SMTP_PASS, MAIL_FROM).');
+    }
+};
+
+const mailTransporter = () => {
+    ensureEmailConfig();
+    return nodemailer.createTransport({
+        host: EMAIL_CONFIG.host,
+        port: EMAIL_CONFIG.port,
+        secure: EMAIL_CONFIG.secure,
+        auth: {
+            user: EMAIL_CONFIG.user,
+            pass: EMAIL_CONFIG.pass,
+        },
+    });
+};
+
+const sendOtpEmail = async ({ email, userName, otp }) => {
+    const transporter = mailTransporter();
+    const safeName = (userName || 'there').trim();
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111827;">
+        <h2 style="margin-bottom: 8px;">Verify your email</h2>
+        <p style="margin: 0 0 16px;">Hi ${safeName},</p>
+        <p style="margin: 0 0 16px;">Use the code below to verify your ProMarket account:</p>
+        <div style="font-size: 28px; letter-spacing: 6px; font-weight: 700; padding: 12px 16px; background:#f3f4f6; border-radius:8px; display:inline-block;">${otp}</div>
+        <p style="margin: 16px 0 0;">This code expires in 5 minutes.</p>
+        <p style="margin: 8px 0 0; color:#6b7280; font-size: 12px;">If you did not request this, you can safely ignore this email.</p>
+      </div>
+    `;
+    await transporter.sendMail({
+        from: EMAIL_CONFIG.from,
+        to: email,
+        subject: 'Your ProMarket verification code',
+        text: `Your ProMarket verification code is ${otp}. It expires in 5 minutes.`,
+        html,
+    });
+};
+
 // --- ENDPOINTS ---
+
+app.post('/auth/send-otp', async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    const userName = String(req.body?.userName || '').trim();
+    const isResend = req.body?.resend === true;
+
+    if (!emailLooksValid(email)) {
+        return res.status(400).json({ success: false, message: 'A valid email is required.' });
+    }
+
+    if (!isAdminReady()) {
+        return res.status(500).json({ success: false, message: 'Verification service unavailable. Admin SDK is not initialized.' });
+    }
+
+    try {
+        ensureEmailConfig();
+        const docRef = otpCollection().doc(email);
+        const snapshot = await docRef.get();
+        const existing = snapshot.exists ? snapshot.data() : null;
+        const now = nowMs();
+        const resendCount = Number(existing?.resendCount || 0);
+        const nextAllowedAtMs = Number(existing?.nextResendAtMs || 0);
+
+        if (isResend && resendCount >= OTP_CONFIG.maxResendsPerSession) {
+            await logOtpEvent('resend_cap_reached', email, { resendCount });
+            return res.status(429).json({
+                success: false,
+                resendCapReached: true,
+                remainingResends: 0,
+                cooldownSeconds: 0,
+                message: 'Resend limit reached. Please contact support or use alternate verification.',
+            });
+        }
+
+        if (nextAllowedAtMs && now < nextAllowedAtMs) {
+            const waitSec = Math.ceil((nextAllowedAtMs - now) / 1000);
+            await logOtpEvent('resend_rate_limited', email, { waitSec, resendCount });
+            return res.status(429).json({
+                success: false,
+                resendCapReached: resendCount >= OTP_CONFIG.maxResendsPerSession,
+                remainingResends: remainingResends(resendCount),
+                cooldownSeconds: waitSec,
+                message: `Please wait ${waitSec}s before requesting another code.`,
+            });
+        }
+
+        const otp = generateOtp();
+        const salt = generateSalt();
+        const otpHash = hashOtp(otp, salt);
+        const expiresAtMs = now + OTP_CONFIG.ttlMs;
+        const nextResendCount = isResend ? resendCount + 1 : 0;
+        const cooldownMs = getCooldownMs(nextResendCount);
+        const nextResendAtMs = now + cooldownMs;
+        const remResends = remainingResends(nextResendCount);
+
+        await docRef.set({
+            email,
+            userName,
+            otpHash,
+            salt,
+            attempts: 0,
+            verified: false,
+            expiresAtMs,
+            resendCount: nextResendCount,
+            nextResendAtMs,
+            lastSentAtMs: now,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: existing?.createdAt || admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+
+        await sendOtpEmail({ email, userName, otp });
+        await logOtpEvent(isResend ? 'otp_resent' : 'otp_sent', email, {
+            resendCount: nextResendCount,
+            cooldownSeconds: Math.floor(cooldownMs / 1000),
+        });
+
+        return res.json({
+            success: true,
+            message: 'Verification code sent.',
+            expiresInSeconds: Math.floor(OTP_CONFIG.ttlMs / 1000),
+            cooldownSeconds: Math.floor(cooldownMs / 1000),
+            remainingResends: remResends,
+            resendCapReached: remResends <= 0,
+        });
+    } catch (error) {
+        console.error('send-otp error:', error.message);
+        await logOtpEvent('send_otp_error', email, { message: error.message });
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to send verification code. Please try again.',
+        });
+    }
+});
+
+app.post('/auth/verify-otp', async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    const otp = String(req.body?.otp || '').trim();
+
+    if (!emailLooksValid(email) || otp.length !== 6) {
+        return res.status(400).json({ success: false, message: 'Invalid verification request.' });
+    }
+
+    if (!isAdminReady()) {
+        return res.status(500).json({ success: false, message: 'Verification service unavailable. Admin SDK is not initialized.' });
+    }
+
+    try {
+        const docRef = otpCollection().doc(email);
+        const snapshot = await docRef.get();
+        if (!snapshot.exists) {
+            await logOtpEvent('verify_missing_session', email);
+            return res.status(404).json({ success: false, message: 'No OTP request found for this email.' });
+        }
+
+        const data = snapshot.data() || {};
+        const attempts = Number(data.attempts || 0);
+        const expiresAtMs = Number(data.expiresAtMs || 0);
+        const salt = String(data.salt || '');
+        const expectedHash = String(data.otpHash || '');
+        const now = nowMs();
+
+        if (attempts >= OTP_CONFIG.maxAttempts) {
+            await logOtpEvent('verify_locked', email, { attempts });
+            return res.status(429).json({ success: false, message: 'Too many failed attempts. Request a new code.' });
+        }
+
+        if (!expiresAtMs || now > expiresAtMs) {
+            await docRef.update({
+                verified: false,
+                expiredAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            await logOtpEvent('verify_expired', email);
+            return res.status(410).json({
+                success: false,
+                status: 'expired',
+                message: 'Code expired — resend?',
+            });
+        }
+
+        const incomingHash = hashOtp(otp, salt);
+        if (!compareHash(expectedHash, incomingHash)) {
+            const nextAttempts = attempts + 1;
+            await docRef.update({ attempts: nextAttempts });
+            await logOtpEvent('verify_failed', email, { attempts: nextAttempts });
+            return res.status(401).json({
+                success: false,
+                message: `Invalid code. ${Math.max(0, OTP_CONFIG.maxAttempts - nextAttempts)} attempts remaining.`,
+            });
+        }
+
+        const users = await admin.firestore()
+            .collection('users')
+            .where('email', '==', email)
+            .limit(1)
+            .get();
+
+        if (users.empty) {
+            return res.status(404).json({ success: false, message: 'User account not found for this email.' });
+        }
+
+        const userDoc = users.docs[0];
+        await userDoc.ref.update({
+            emailVerified: true,
+            verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        await docRef.update({
+            verified: true,
+            verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        await logOtpEvent('verify_success', email);
+
+        return res.json({ success: true, message: 'Email verified successfully.' });
+    } catch (error) {
+        console.error('verify-otp error:', error.message);
+        await logOtpEvent('verify_error', email, { message: error.message });
+        return res.status(500).json({
+            success: false,
+            message: 'Could not verify code right now. Please try again.',
+        });
+    }
+});
+
+app.post('/auth/verification-status', async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+
+    if (!emailLooksValid(email)) {
+        return res.status(400).json({ verified: false, status: 'invalid', message: 'Invalid email.' });
+    }
+
+    if (!isAdminReady()) {
+        return res.status(500).json({ verified: false, status: 'error', message: 'Verification service unavailable.' });
+    }
+
+    try {
+        const snapshot = await otpCollection().doc(email).get();
+        if (!snapshot.exists) {
+            return res.json({ verified: false, status: 'pending' });
+        }
+
+        const data = snapshot.data() || {};
+        const verified = data.verified === true;
+        const expiresAtMs = Number(data.expiresAtMs || 0);
+        const expired = expiresAtMs > 0 && nowMs() > expiresAtMs;
+        const resendCount = Number(data.resendCount || 0);
+        const nextResendAtMs = Number(data.nextResendAtMs || 0);
+        const cooldownSeconds = Math.max(0, Math.ceil((nextResendAtMs - nowMs()) / 1000));
+
+        return res.json({
+            verified,
+            status: verified ? 'verified' : (expired ? 'expired' : 'pending'),
+            attempts: Number(data.attempts || 0),
+            expiresAtMs,
+            cooldownSeconds,
+            remainingResends: remainingResends(resendCount),
+            resendCapReached: resendCount >= OTP_CONFIG.maxResendsPerSession,
+        });
+    } catch (error) {
+        console.error('verification-status error:', error.message);
+        return res.status(500).json({
+            verified: false,
+            status: 'error',
+            message: 'Unable to fetch verification status.',
+        });
+    }
+});
+
+app.post('/auth/client-event', async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    const eventName = String(req.body?.eventName || '').trim();
+    const meta = req.body?.meta && typeof req.body.meta === 'object' ? req.body.meta : {};
+
+    if (!isAdminReady()) {
+        return res.status(500).json({ success: false, message: 'Analytics service unavailable.' });
+    }
+    if (!eventName || !emailLooksValid(email)) {
+        return res.status(400).json({ success: false, message: 'Invalid analytics payload.' });
+    }
+
+    await logOtpEvent(eventName, email, meta);
+    return res.json({ success: true });
+});
 
 /**
  * 1. STK Push Endpoint

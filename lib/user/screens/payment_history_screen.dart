@@ -42,7 +42,11 @@ class PaymentHistoryScreen extends StatelessWidget {
                   const Text('No payment history found', style: TextStyle(color: AppColors.gray500)),
                   if (snapshot.hasError) ...[
                     const SizedBox(height: 8),
-                    Text('Error: ${snapshot.error}', style: const TextStyle(color: AppColors.error, fontSize: 12), textAlign: TextAlign.center),
+                    const Text(
+                      'Please check your connection and try again.',
+                      style: TextStyle(color: AppColors.error, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
                     TextButton(onPressed: () => (context as Element).markNeedsBuild(), child: const Text('Retry')),
                   ]
                 ],

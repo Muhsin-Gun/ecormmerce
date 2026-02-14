@@ -51,8 +51,22 @@ class AuthWrapper extends StatelessWidget {
 
             final userModel = UserModel.fromFirestore(snap.data!);
 
+            // 🚨 SUPER ADMIN BYPASSES EMAIL VERIFICATION
+            if (userModel.isRoot) {
+              return const AdminDashboardScreen();
+            }
+
+            if (!userModel.emailVerified) {
+              Future.microtask(() => FirebaseAuth.instance.signOut());
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+
             // Check if admin is approved (Root is always approved)
-            if (userModel.role == 'admin' && !userModel.isApproved && !userModel.isRoot) {
+            if (userModel.role == 'admin' &&
+                !userModel.isApproved &&
+                !userModel.isRoot) {
               return Scaffold(
                 backgroundColor: AppColors.background,
                 body: Center(
@@ -61,7 +75,8 @@ class AuthWrapper extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.hourglass_empty, size: 80, color: AppColors.warning),
+                        const Icon(Icons.hourglass_empty,
+                            size: 80, color: AppColors.warning),
                         const SizedBox(height: 24),
                         const Text(
                           'Approval Pending',
@@ -102,4 +117,3 @@ class AuthWrapper extends StatelessWidget {
     );
   }
 }
-

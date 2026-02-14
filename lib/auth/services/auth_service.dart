@@ -4,6 +4,8 @@ import '../../core/constants/constants.dart';
 import '../models/user_model.dart';
 
 class AuthService {
+  static const String unverifiedEmailErrorCode = 'UNVERIFIED_EMAIL';
+
   final _auth = FirebaseAuth.instance;
   final _db = FirebaseFirestore.instance;
 
@@ -28,6 +30,11 @@ class AuthService {
 
     final user = UserModel.fromFirestore(doc);
 
+    if (!user.isRoot && !user.emailVerified) {
+      await _auth.signOut();
+      throw Exception('$unverifiedEmailErrorCode|${user.email}|${user.name}');
+    }
+
     if (user.role == 'admin' && !user.isApproved && !user.isRoot) {
       throw Exception('Admin approval pending');
     }
@@ -50,21 +57,23 @@ class AuthService {
 
     final uid = cred.user!.uid;
 
-    final isRoot = email.toLowerCase() == AppConstants.superAdminEmail.toLowerCase();
+    final isRoot =
+        email.toLowerCase() == AppConstants.superAdminEmail.toLowerCase();
 
-    // Create full user model
+    // Create full user model (emailVerified starts as false)
     final user = UserModel(
       userId: uid,
       email: email,
       name: name,
       phone: phone,
       role: isRoot ? AppConstants.roleAdmin : role,
-      roleStatus: (isRoot || role == AppConstants.roleClient) 
-          ? AppConstants.roleStatusApproved 
+      roleStatus: (isRoot || role == AppConstants.roleClient)
+          ? AppConstants.roleStatusApproved
           : AppConstants.roleStatusPending,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       isRoot: isRoot,
+      emailVerified: false, // Mark as not verified until OTP confirmed
     );
 
     await _db.collection('users').doc(uid).set(user.toMap());
@@ -108,7 +117,7 @@ class AuthService {
         'by': _auth.currentUser?.email,
       });
     } catch (e) {
-      print('Audit log failed: $e');
+      // Keep auth flows non-blocking when audit logging fails.
     }
   }
 

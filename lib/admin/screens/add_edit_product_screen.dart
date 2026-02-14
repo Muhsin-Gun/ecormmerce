@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_feedback.dart';
 import '../../core/utils/validators.dart';
 import '../../shared/models/product_model.dart';
 import '../../shared/providers/product_provider.dart';
@@ -153,17 +154,18 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.product == null ? 'Product Added' : 'Product Updated'),
-            backgroundColor: AppColors.success,
-          ),
+        AppFeedback.success(
+          context,
+          widget.product == null ? 'Product added' : 'Product updated',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text('Error: $e')),
+        AppFeedback.error(
+          context,
+          e,
+          fallbackMessage: 'Could not save product.',
+          nextStep: 'Check fields and retry.',
         );
       }
     } finally {

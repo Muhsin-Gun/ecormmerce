@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_feedback.dart';
 import '../../shared/screens/order_management_screen.dart';
 import '../../shared/services/firebase_service.dart';
 import '../../shared/widgets/section_header.dart';
@@ -11,8 +12,6 @@ import 'admin_products_tab.dart';
 import 'user_management_screen.dart';
 import 'package:provider/provider.dart';
 import '../../auth/providers/auth_provider.dart';
-import 'admin_approval_screen.dart';
-import 'audit_logs_screen.dart';
 import 'admin_reports_screen.dart';
 import '../../shared/screens/chat_list_screen.dart';
 import '../../shared/services/data_seeder.dart';
@@ -277,23 +276,18 @@ class AdminDashboardScreen extends StatelessWidget {
                           
                           if (context.mounted) Navigator.pop(context); // Dismiss loading
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Database seeded successfully!'),
-                                backgroundColor: AppColors.success,
-                              ),
-                            );
+                            AppFeedback.success(context, 'Database seeded successfully');
                             // Refresh stats
                             (context as Element).markNeedsBuild();
                           }
                         } catch (e) {
                           if (context.mounted) Navigator.pop(context); // Dismiss loading
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error: $e'),
-                                backgroundColor: AppColors.error,
-                              ),
+                            AppFeedback.error(
+                              context,
+                              e,
+                              fallbackMessage: 'Could not seed database.',
+                              nextStep: 'Please retry.',
                             );
                           }
                         }

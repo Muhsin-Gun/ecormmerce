@@ -3,10 +3,12 @@ import 'package:provider/provider.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_feedback.dart';
 import '../../core/utils/validators.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
+import 'email_otp_verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -17,15 +19,13 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  
-  // Controllers
+
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
-  // State
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -41,34 +41,61 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     FocusScope.of(context).unfocus();
-    
+
     final authProvider = context.read<AuthProvider>();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.trim();
+
     final success = await authProvider.register(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      name: _nameController.text.trim(),
-      phone: _phoneController.text.trim(),
+      email: email,
+      password: password,
+      name: name,
+      phone: phone,
       role: AppConstants.roleClient,
     );
-    
+
     if (success && mounted) {
-      // The AuthWrapper will automatically pick up the new auth state
-      // and show the appropriate screen (UserMain, Admin Dashboard, or Pending)
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Account created successfully!'),
-          backgroundColor: AppColors.success,
+      await authProvider.signOut();
+      if (!mounted) return;
+
+      final otpSent = await authProvider.sendOTPtoEmail(
+        email: email,
+        userName: name,
+      );
+      if (!mounted) return;
+
+      if (otpSent) {
+        AppFeedback.success(
+          context,
+          'Verification email sent to $email. Didn\'t receive it? Resend.',
+        );
+      } else {
+        AppFeedback.error(
+          context,
+          authProvider.errorMessage ??
+              'Could not send OTP automatically. Request another code.',
+          nextStep: 'Use Resend code on the next screen.',
+        );
+      }
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => EmailOTPVerificationScreen(
+            email: email,
+            userName: name,
+            initialCodeSent: otpSent,
+          ),
         ),
       );
-      Navigator.of(context).pop(); // Go back to login/root
     } else if (mounted && authProvider.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(authProvider.errorMessage!),
-          backgroundColor: AppColors.error,
-        ),
+      AppFeedback.error(
+        context,
+        authProvider.errorMessage!,
+        nextStep: 'Check your details and try again.',
       );
     }
   }
@@ -115,7 +142,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ),
           const SizedBox(height: AppTheme.spacingM),
-          
           AuthTextField(
             controller: _nameController,
             labelText: 'Full Name',
@@ -124,7 +150,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             validator: (value) => Validators.validateName(value),
           ),
           const SizedBox(height: AppTheme.spacingM),
-          
           AuthTextField(
             controller: _emailController,
             labelText: 'Email Address',
@@ -134,7 +159,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             validator: Validators.validateEmail,
           ),
           const SizedBox(height: AppTheme.spacingM),
-          
           AuthTextField(
             controller: _phoneController,
             labelText: 'Phone Number',
@@ -144,7 +168,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             validator: Validators.validatePhone,
           ),
           const SizedBox(height: AppTheme.spacingL),
-          
           Text(
             'Security',
             style: theme.textTheme.titleSmall?.copyWith(
@@ -153,31 +176,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ),
           const SizedBox(height: AppTheme.spacingM),
-          
           AuthTextField(
             controller: _passwordController,
             labelText: 'Password',
             hintText: 'Min 8 chars, 1 uppercase, 1 number',
             prefixIcon: Icons.lock_outlined,
             obscureText: _obscurePassword,
-            suffixIcon: _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-            onSuffixIconPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+            suffixIcon: _obscurePassword
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
+            onSuffixIconPressed: () =>
+                setState(() => _obscurePassword = !_obscurePassword),
             validator: Validators.validatePassword,
           ),
           const SizedBox(height: AppTheme.spacingM),
-          
           AuthTextField(
             controller: _confirmPasswordController,
             labelText: 'Confirm Password',
             hintText: 'Re-enter your password',
             prefixIcon: Icons.lock_outline,
             obscureText: _obscureConfirmPassword,
-            suffixIcon: _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-            onSuffixIconPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-            validator: (value) => Validators.validatePasswordConfirmation(value, _passwordController.text),
+            suffixIcon: _obscureConfirmPassword
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined,
+            onSuffixIconPressed: () => setState(
+              () => _obscureConfirmPassword = !_obscureConfirmPassword,
+            ),
+            validator: (value) =>
+                Validators.validatePasswordConfirmation(value, _passwordController.text),
           ),
           const SizedBox(height: AppTheme.spacingXL),
-          
           Consumer<AuthProvider>(
             builder: (context, auth, _) {
               return AuthButton(
@@ -187,15 +215,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               );
             },
           ),
-          
           const SizedBox(height: AppTheme.spacingM),
-          
-          // Terms text
           Text(
             'By continuing, you agree to our Terms of Service and Privacy Policy.',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: isDark ? AppColors.gray500 : AppColors.gray500,
+              color: AppColors.gray500,
             ),
           ),
         ],
