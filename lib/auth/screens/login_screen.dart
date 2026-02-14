@@ -116,6 +116,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 
   Future<void> _signInWithGoogle({bool useAnotherAccount = false}) async {
+    if (_isGoogleLoading) return;
+
     final auth = context.read<AuthProvider>();
     setState(() {
       _isGoogleLoading = true;
@@ -133,14 +135,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         await auth.prepareGoogleAccountSwitch();
       }
 
-      final success = await auth.signInWithGoogle(
-        forceAccountChooser: useAnotherAccount,
-      );
+      final success = await auth
+          .signInWithGoogle(
+            forceAccountChooser: useAnotherAccount,
+          )
+          .timeout(const Duration(seconds: 30));
       if (!mounted) return;
-
-      setState(() {
-        _isGoogleLoading = false;
-      });
 
       if (success) {
         AppFeedback.success(context, 'Welcome! Signed in with Google');
@@ -163,6 +163,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         _oauthInlineError!,
         nextStep: 'Retry or choose another account.',
       );
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _oauthInlineError =
+            'Google sign-in is taking too long. Please check your connection and try again.';
+      });
+      AppFeedback.error(context, _oauthInlineError!);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGoogleLoading = false;
+        });
+      }
     }
   }
   @override

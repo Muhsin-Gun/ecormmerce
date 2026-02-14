@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,7 +8,7 @@ import '../../core/constants/constants.dart';
 /// Theme Provider for managing dark/light mode
 /// Syncs theme preference to SharedPreferences and Firestore
 class ThemeProvider extends ChangeNotifier {
-  bool _isDarkMode = true; // Dark mode first
+  bool _isDarkMode = false; // Light mode by default
   bool _isLoading = false;
   String? _userId;
 
@@ -22,7 +24,7 @@ class ThemeProvider extends ChangeNotifier {
   Future<void> init({String? userId}) async {
     _userId = userId;
     await _loadThemeFromLocal();
-    
+
     // If user is logged in, sync from Firestore
     if (_userId != null) {
       await _loadThemeFromFirestore();
@@ -33,7 +35,7 @@ class ThemeProvider extends ChangeNotifier {
   Future<void> _loadThemeFromLocal() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _isDarkMode = prefs.getBool(AppConstants.prefThemeMode) ?? true;
+      _isDarkMode = prefs.getBool(AppConstants.prefThemeMode) ?? false;
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading theme from local: $e');
@@ -53,12 +55,12 @@ class ThemeProvider extends ChangeNotifier {
       if (doc.exists) {
         final data = doc.data();
         if (data != null && data.containsKey('darkMode')) {
-          _isDarkMode = data['darkMode'] as bool? ?? true;
-          
+          _isDarkMode = data['darkMode'] as bool? ?? false;
+
           // Save to local as well
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool(AppConstants.prefThemeMode, _isDarkMode);
-          
+
           notifyListeners();
         }
       }
@@ -71,16 +73,7 @@ class ThemeProvider extends ChangeNotifier {
 
   /// Toggle between dark and light mode
   Future<void> toggleTheme() async {
-    _isDarkMode = !_isDarkMode;
-    notifyListeners();
-
-    // Save to local storage
-    await _saveThemeToLocal();
-
-    // Save to Firestore if user is logged in
-    if (_userId != null) {
-      await _saveThemeToFirestore();
-    }
+    await setThemeMode(!_isDarkMode);
   }
 
   /// Set specific theme mode
@@ -90,11 +83,7 @@ class ThemeProvider extends ChangeNotifier {
     _isDarkMode = isDark;
     notifyListeners();
 
-    await _saveThemeToLocal();
-
-    if (_userId != null) {
-      await _saveThemeToFirestore();
-    }
+    unawaited(_persistThemePreference());
   }
 
   /// Set dark mode
@@ -108,6 +97,14 @@ class ThemeProvider extends ChangeNotifier {
   }
 
   // ==================== PERSISTENCE ====================
+
+  Future<void> _persistThemePreference() async {
+    await _saveThemeToLocal();
+
+    if (_userId != null) {
+      await _saveThemeToFirestore();
+    }
+  }
 
   /// Save theme to SharedPreferences
   Future<void> _saveThemeToLocal() async {
@@ -141,10 +138,10 @@ class ThemeProvider extends ChangeNotifier {
   /// Update user ID when user logs in
   void setUserId(String? userId) {
     _userId = userId;
-    
+
     if (_userId != null) {
       // Load theme from Firestore for the logged-in user
-      _loadThemeFromFirestore();
+      unawaited(_loadThemeFromFirestore());
     }
   }
 

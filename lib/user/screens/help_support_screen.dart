@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/support_utils.dart';
@@ -92,11 +93,11 @@ class HelpSupportScreen extends StatelessWidget {
           _buildContactCard(
             context,
             title: 'Call Support',
-            subtitle: '+1 (800) 123-4567',
+            subtitle: '0793027220',
             icon: Icons.phone_outlined,
             color: AppColors.success,
             onTap: () {
-              // Open phone dialer
+              _openSupportDialer();
             },
           ),
           
@@ -110,6 +111,11 @@ class HelpSupportScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _openSupportDialer() async {
+    final uri = Uri(scheme: 'tel', path: '0793027220');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Widget _buildFAQTile(BuildContext context, {required String question, required String answer}) {

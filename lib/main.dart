@@ -63,14 +63,19 @@ class ProMarketApp extends StatelessWidget {
         // Services
         Provider.value(value: FirebaseService.instance),
         
-        // Theme Provider
-        ChangeNotifierProvider(
-          create: (_) => ThemeProvider()..init(),
-        ),
-        
         // Auth Provider
         ChangeNotifierProvider(
           create: (_) => AuthProvider()..init(),
+        ),
+
+        // Theme Provider (reacts to current auth user)
+        ChangeNotifierProxyProvider<AuthProvider, ThemeProvider>(
+          create: (_) => ThemeProvider()..init(),
+          update: (_, auth, themeProvider) {
+            final provider = themeProvider ?? ThemeProvider();
+            provider.setUserId(auth.firebaseUser?.uid);
+            return provider;
+          },
         ),
         
         // Product Provider

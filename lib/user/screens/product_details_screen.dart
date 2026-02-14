@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
@@ -79,6 +80,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         .where((url) => url.isNotEmpty)
         .toList();
     final reviewProvider = context.watch<ReviewProvider>();
+    final isDesktopWeb = kIsWeb && size.width >= 900;
+    final imageHeaderHeight = isDesktopWeb ? 420.0 : size.height * 0.45;
     final ratingCount = reviewProvider.reviewCountFor(widget.product.productId);
     final rating = reviewProvider.averageRatingFor(widget.product.productId);
 
@@ -88,7 +91,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         slivers: [
           // 1. App Bar with Image Carousel
           SliverAppBar(
-            expandedHeight: size.height * 0.45,
+            expandedHeight: imageHeaderHeight,
             pinned: true,
             leading: IconButton(
               icon: const CircleAvatar(
@@ -146,18 +149,25 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       final imageUrl = entry.value;
                       return Hero(
                         tag: 'product_image_${widget.product.productId}_$index',
-                        child: OptimizedNetworkImage(
-                          imageUrl: imageUrl,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          memCacheWidth: (1200 * MediaQuery.of(context).devicePixelRatio).round(),
-                          placeholder: const Center(
-                            child: SizedBox.square(
-                              dimension: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: isDesktopWeb ? 760 : double.infinity,
+                            ),
+                            child: OptimizedNetworkImage(
+                              imageUrl: imageUrl,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              memCacheWidth: (1200 * MediaQuery.of(context).devicePixelRatio).round(),
+                              placeholder: const Center(
+                                child: SizedBox.square(
+                                  dimension: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              ),
+                              errorWidget: const Icon(Icons.broken_image),
                             ),
                           ),
-                          errorWidget: const Icon(Icons.broken_image),
                         ),
                       );
                     }).toList(),

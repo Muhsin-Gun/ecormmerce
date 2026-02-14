@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -90,7 +92,6 @@ class AuthProvider extends ChangeNotifier {
 
   /// 🔐 GOOGLE SIGN-IN
   Future<bool> signInWithGoogle({bool forceAccountChooser = false}) async {
-    _setLoading(true);
     _clearError();
     try {
       late final UserCredential userCredential;
@@ -103,8 +104,9 @@ class AuthProvider extends ChangeNotifier {
         if (forceAccountChooser) {
           googleProvider.setCustomParameters({'prompt': 'select_account'});
         }
-        userCredential =
-            await FirebaseAuth.instance.signInWithPopup(googleProvider);
+        userCredential = await FirebaseAuth.instance
+            .signInWithPopup(googleProvider)
+            .timeout(const Duration(seconds: 25));
       } else {
         // Mobile/desktop: use google_sign_in and exchange tokens with Firebase.
         final googleSignIn = GoogleSignIn();
@@ -115,9 +117,10 @@ class AuthProvider extends ChangeNotifier {
             await googleSignIn.signOut();
           }
         }
-        final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+        final GoogleSignInAccount? googleUser =
+            await googleSignIn.signIn().timeout(const Duration(seconds: 25));
         if (googleUser == null) {
-          _setLoading(false);
+          _setError('Google sign-in was canceled.');
           return false;
         }
 
@@ -127,8 +130,9 @@ class AuthProvider extends ChangeNotifier {
           accessToken: googleAuth.accessToken,
           idToken: googleAuth.idToken,
         );
-        userCredential =
-            await FirebaseAuth.instance.signInWithCredential(credential);
+        userCredential = await FirebaseAuth.instance
+            .signInWithCredential(credential)
+            .timeout(const Duration(seconds: 25));
       }
 
       final user = userCredential.user;
@@ -181,11 +185,12 @@ class AuthProvider extends ChangeNotifier {
         }
       }
 
-      _setLoading(false);
       return true;
+    } on TimeoutException {
+      _setError('Google Sign-In timed out. Please try again.');
+      return false;
     } catch (e) {
       _setError('Google Sign-In failed: ${e.toString()}');
-      _setLoading(false);
       return false;
     }
   }
