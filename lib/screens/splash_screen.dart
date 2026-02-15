@@ -22,11 +22,7 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     _controller = AnimationController(vsync: this);
 
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!_loaded && mounted) _finish();
-    });
-
-    Future.delayed(const Duration(seconds: 6), () {
+    Timer(const Duration(milliseconds: 2800), () {
       if (mounted) _finish();
     });
   }
@@ -45,51 +41,63 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1220),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Center(
-              child: Semantics(
-                label: 'ProMarket opening animation',
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF080E1C), Color(0xFF172750), Color(0xFF3A1D82)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedScale(
+                scale: 1,
+                duration: const Duration(milliseconds: 450),
+                curve: Curves.easeOutBack,
                 child: Lottie.asset(
                   'assets/animations/pro_market_splash.json',
                   controller: _controller,
                   repeat: false,
                   onLoaded: (composition) {
                     _loaded = true;
-                    final ms = composition.duration.inMilliseconds;
                     _controller
-                      ..duration = Duration(milliseconds: ms.clamp(2500, 3500))
+                      ..duration = Duration(
+                        milliseconds: composition.duration.inMilliseconds.clamp(1600, 2200),
+                      )
                       ..forward().whenComplete(_finish);
                   },
                   errorBuilder: (_, __, ___) => Image.asset(
                     'assets/images/splash_static.png',
-                    width: 220,
-                    height: 220,
-                    semanticLabel: 'ProMarket Splash',
+                    width: 200,
+                    height: 200,
                   ),
-                  width: 280,
-                  height: 280,
-                  fit: BoxFit.contain,
+                  width: 220,
+                  height: 220,
                 ),
               ),
-            ),
-            Positioned(
-              top: 12,
-              right: 12,
-              child: Semantics(
-                button: true,
-                label: 'Skip splash',
-                child: TextButton(
-                  onPressed: _finish,
-                  child: const Text('Skip',
-                      style: TextStyle(color: Colors.white70)),
+              const SizedBox(height: 14),
+              Text(
+                'ProMarket',
+                style: textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                _loaded ? 'Everything you love, delivered fast.' : 'Loading your store…',
+                style: textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.85),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

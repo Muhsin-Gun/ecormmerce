@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 
 // Firebase Options
@@ -33,6 +34,12 @@ void main() {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
+
+    final imageCache = PaintingBinding.instance.imageCache;
+    imageCache.maximumSize = 1000;
+    imageCache.maximumSizeBytes = 200 << 20;
 
     await AppErrorReporter.init();
 
