@@ -47,8 +47,7 @@ class _HomeTabState extends State<HomeTab> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isWebLike = screenWidth >= 900;
     final gridCrossAxisCount = isWebLike ? 4 : (screenWidth >= 600 ? 3 : 2);
-    final gridAspectRatio =
-        isWebLike ? 0.86 : (screenWidth >= 600 ? 0.82 : 0.74);
+    final gridAspectRatio = isWebLike ? 0.78 : (screenWidth >= 600 ? 0.76 : 0.72);
 
     return Scaffold(
       appBar: AppBar(
@@ -318,7 +317,7 @@ class _HomeTabState extends State<HomeTab> {
                         );
                       },
                       childCount: products.length,
-                      addAutomaticKeepAlives: true,
+                      addAutomaticKeepAlives: false,
                       addRepaintBoundaries: true,
                     ),
                   ),

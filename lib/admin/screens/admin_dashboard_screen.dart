@@ -15,6 +15,7 @@ import '../../auth/providers/auth_provider.dart';
 import 'admin_reports_screen.dart';
 import '../../shared/screens/chat_list_screen.dart';
 import '../../shared/services/data_seeder.dart';
+import '../../shared/screens/broadcast_notification_screen.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -52,7 +53,13 @@ class AdminDashboardScreen extends StatelessWidget {
               }
             },
           ),
-          IconButton(icon: const Icon(Icons.notifications), onPressed: () {}),
+          IconButton(
+            icon: const Icon(Icons.notifications_active_outlined),
+            tooltip: 'Send campaign',
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const BroadcastNotificationScreen()));
+            },
+          ),
         ],
       ),
       body: FutureBuilder<Map<String, dynamic>>(
