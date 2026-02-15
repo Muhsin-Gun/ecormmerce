@@ -29,19 +29,20 @@ class ProductCard extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     // Balanced decode size for faster scrolling on mobile/web grids.
     const imageCacheSize = 420;
-    const borderRadius = BorderRadius.vertical(top: Radius.circular(AppTheme.radiusMedium));
+    const borderRadius =
+        BorderRadius.vertical(top: Radius.circular(AppTheme.radiusMedium));
 
     return RepaintBoundary(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: isCompact ? 150 : double.infinity,
+          width: double.infinity,
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkCard : AppColors.lightCard,
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -58,7 +59,8 @@ class ProductCard extends StatelessWidget {
                     ClipRRect(
                       borderRadius: borderRadius,
                       child: Hero(
-                        tag: 'product_${product.productId}${heroTagSuffix ?? ''}',
+                        tag:
+                            'product_${product.productId}${heroTagSuffix ?? ''}',
                         child: product.mainImage.isNotEmpty
                             ? OptimizedNetworkImage(
                                 imageUrl: product.mainImage,
@@ -66,28 +68,36 @@ class ProductCard extends StatelessWidget {
                                 height: double.infinity,
                                 memCacheWidth: imageCacheSize,
                                 placeholder: Container(
-                                  color: isDark ? Colors.grey[800] : Colors.grey[200],
+                                  color: isDark
+                                      ? Colors.grey[800]
+                                      : Colors.grey[200],
                                   child: const Center(
                                     child: SizedBox.square(
                                       dimension: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
                                     ),
                                   ),
                                 ),
                                 errorWidget: Container(
-                                  color: isDark ? Colors.grey[800] : Colors.grey[200],
-                                  child: const Icon(Icons.broken_image_outlined),
+                                  color: isDark
+                                      ? Colors.grey[800]
+                                      : Colors.grey[200],
+                                  child:
+                                      const Icon(Icons.broken_image_outlined),
                                 ),
                               )
                             : Container(
-                                color: isDark ? Colors.grey[800] : Colors.grey[200],
+                                color: isDark
+                                    ? Colors.grey[800]
+                                    : Colors.grey[200],
                                 child: const Center(
                                   child: Icon(Icons.broken_image_outlined),
                                 ),
                               ),
                       ),
                     ),
-                    
+
                     // Discount Badge
                     if (product.isOnSale && product.discountPercentage != null)
                       Positioned(
@@ -100,7 +110,8 @@ class ProductCard extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: AppColors.error,
-                            borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSmall),
                           ),
                           child: Text(
                             '${product.discountPercentage!.toInt()}% OFF',
@@ -111,44 +122,50 @@ class ProductCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      
+
                     // Wishlist Button - Using RepaintBoundary for micro-animations
                     Positioned(
                       top: 8,
                       right: 8,
                       child: RepaintBoundary(
                         child: Selector<WishlistProvider, bool>(
-                          selector: (_, wishlistProvider) => wishlistProvider.isInWishlist(product.productId),
-                          builder: (context, isInWishlist, _) {
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.3),
-                                shape: BoxShape.circle,
-                              ),
-                              child: IconButton(
-                                icon: Icon(
-                                  isInWishlist ? Icons.favorite : Icons.favorite_border,
-                                  color: isInWishlist ? AppColors.error : Colors.white,
-                                  size: 18,
+                            selector: (_, wishlistProvider) => wishlistProvider
+                                .isInWishlist(product.productId),
+                            builder: (context, isInWishlist, _) {
+                              return Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  shape: BoxShape.circle,
                                 ),
-                                onPressed: () {
-                                  context.read<WishlistProvider>().toggleWishlist(product);
-                                },
-                                constraints: const BoxConstraints(
-                                  minWidth: 32,
-                                  minHeight: 32,
+                                child: IconButton(
+                                  icon: Icon(
+                                    isInWishlist
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    color: isInWishlist
+                                        ? AppColors.error
+                                        : Colors.white,
+                                    size: 18,
+                                  ),
+                                  onPressed: () {
+                                    context
+                                        .read<WishlistProvider>()
+                                        .toggleWishlist(product);
+                                  },
+                                  constraints: const BoxConstraints(
+                                    minWidth: 32,
+                                    minHeight: 32,
+                                  ),
+                                  padding: EdgeInsets.zero,
                                 ),
-                                padding: EdgeInsets.zero,
-                              ),
-                            );
-                          }
-                        ),
+                              );
+                            }),
                       ),
                     ),
                   ],
                 ),
               ),
-  
+
               // Details Section
               Padding(
                 padding: const EdgeInsets.all(AppTheme.spacingS),
@@ -175,7 +192,6 @@ class ProductCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
-                    
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -189,9 +205,11 @@ class ProductCard extends StatelessWidget {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            if (product.isOnSale && product.compareAtPrice != null)
+                            if (product.isOnSale &&
+                                product.compareAtPrice != null)
                               Text(
-                                Formatters.formatCurrency(product.compareAtPrice!),
+                                Formatters.formatCurrency(
+                                    product.compareAtPrice!),
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: AppColors.gray500,
                                   decoration: TextDecoration.lineThrough,
@@ -199,7 +217,6 @@ class ProductCard extends StatelessWidget {
                               ),
                           ],
                         ),
-                        
                         if (onAddToCart != null)
                           Container(
                             decoration: const BoxDecoration(

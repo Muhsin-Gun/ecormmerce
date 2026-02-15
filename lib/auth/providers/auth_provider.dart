@@ -93,6 +93,7 @@ class AuthProvider extends ChangeNotifier {
   /// 🔐 GOOGLE SIGN-IN
   Future<bool> signInWithGoogle({bool forceAccountChooser = false}) async {
     _clearError();
+    _setLoading(true);
     try {
       late final UserCredential userCredential;
 
@@ -166,15 +167,20 @@ class AuthProvider extends ChangeNotifier {
             .doc(user.uid)
             .set(newUser.toMap());
         _userModel = newUser;
+        notifyListeners();
       } else {
         // Load existing user profile
         _userModel = UserModel.fromFirestore(userDoc);
         if (_userModel != null &&
             !_userModel!.emailVerified &&
-            (user.emailVerified || user.providerData.any(
-              (provider) => provider.providerId == 'google.com',
-            ))) {
-          await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+            (user.emailVerified ||
+                user.providerData.any(
+                  (provider) => provider.providerId == 'google.com',
+                ))) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .set(
             {
               'emailVerified': true,
               'updatedAt': FieldValue.serverTimestamp(),
@@ -183,14 +189,17 @@ class AuthProvider extends ChangeNotifier {
           );
           _userModel = _userModel!.copyWith(emailVerified: true);
         }
+        notifyListeners();
       }
-
+      _setLoading(false);
       return true;
     } on TimeoutException {
       _setError('Google Sign-In timed out. Please try again.');
+      _setLoading(false);
       return false;
     } catch (e) {
       _setError('Google Sign-In failed: ${e.toString()}');
+      _setLoading(false);
       return false;
     }
   }

@@ -47,7 +47,8 @@ class _HomeTabState extends State<HomeTab> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isWebLike = screenWidth >= 900;
     final gridCrossAxisCount = isWebLike ? 4 : (screenWidth >= 600 ? 3 : 2);
-    final gridAspectRatio = isWebLike ? 0.86 : (screenWidth >= 600 ? 0.82 : 0.74);
+    final gridAspectRatio =
+        isWebLike ? 0.86 : (screenWidth >= 600 ? 0.82 : 0.74);
 
     return Scaffold(
       appBar: AppBar(
@@ -60,7 +61,8 @@ class _HomeTabState extends State<HomeTab> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const ConversationListScreen()),
+                MaterialPageRoute(
+                    builder: (_) => const ConversationListScreen()),
               );
             },
           ),
@@ -79,26 +81,36 @@ class _HomeTabState extends State<HomeTab> {
       body: RefreshIndicator(
         onRefresh: () async => await context.read<ProductProvider>().refresh(),
         child: CustomScrollView(
-          cacheExtent: 200,
+          cacheExtent: 500,
           slivers: [
             // 0. Loading State - Only rebuilds if loading changes
             Selector<ProductProvider, bool>(
               selector: (_, p) => p.isLoading && p.products.isEmpty,
               builder: (context, isLoading, _) {
-                if (!isLoading) return const SliverToBoxAdapter(child: SizedBox.shrink());
+                if (!isLoading)
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
                 return SliverPadding(
                   padding: const EdgeInsets.all(AppTheme.spacingL),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      const SkeletonLoader(width: double.infinity, height: 180, borderRadius: AppTheme.radiusLarge),
+                      const SkeletonLoader(
+                          width: double.infinity,
+                          height: 180,
+                          borderRadius: AppTheme.radiusLarge),
                       const SizedBox(height: 24),
                       const SkeletonLoader(width: 150, height: 24),
                       const SizedBox(height: 16),
                       const Row(
                         children: [
-                          SkeletonLoader(width: 150, height: 200, borderRadius: AppTheme.radiusMedium),
+                          SkeletonLoader(
+                              width: 150,
+                              height: 200,
+                              borderRadius: AppTheme.radiusMedium),
                           SizedBox(width: 16),
-                          SkeletonLoader(width: 150, height: 200, borderRadius: AppTheme.radiusMedium),
+                          SkeletonLoader(
+                              width: 150,
+                              height: 200,
+                              borderRadius: AppTheme.radiusMedium),
                         ],
                       ),
                     ]),
@@ -111,7 +123,8 @@ class _HomeTabState extends State<HomeTab> {
             Selector<ProductProvider, List<ProductModel>>(
               selector: (_, p) => p.featuredProducts,
               builder: (context, featuredProducts, _) {
-                if (featuredProducts.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+                if (featuredProducts.isEmpty)
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
                 return SliverToBoxAdapter(
                   child: Column(
                     children: [
@@ -121,10 +134,17 @@ class _HomeTabState extends State<HomeTab> {
                           height: screenWidth >= 900 ? 220 : 180,
                           viewportFraction: 0.9,
                           enlargeCenterPage: true,
-                          autoPlay: true,
-                          onPageChanged: (index, _) => _currentCarouselIndex.value = index,
+                          autoPlay: false,
+                          autoPlayInterval: const Duration(seconds: 4),
+                          autoPlayAnimationDuration:
+                              const Duration(milliseconds: 800),
+                          onPageChanged: (index, _) =>
+                              _currentCarouselIndex.value = index,
                         ),
-                        items: featuredProducts.map((product) => _buildFeaturedCard(context, product)).toList(),
+                        items: featuredProducts
+                            .map((product) =>
+                                _buildFeaturedCard(context, product))
+                            .toList(),
                       ),
                       const SizedBox(height: AppTheme.spacingS),
                       ValueListenableBuilder<int>(
@@ -132,14 +152,18 @@ class _HomeTabState extends State<HomeTab> {
                         builder: (context, index, _) {
                           return Row(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: featuredProducts.asMap().entries.map((entry) {
+                            children:
+                                featuredProducts.asMap().entries.map((entry) {
                               return Container(
                                 width: 8.0,
                                 height: 8.0,
-                                margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 4.0),
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: index == entry.key ? AppColors.electricPurple : AppColors.gray300,
+                                  color: index == entry.key
+                                      ? AppColors.electricPurple
+                                      : AppColors.gray300,
                                 ),
                               );
                             }).toList(),
@@ -156,27 +180,38 @@ class _HomeTabState extends State<HomeTab> {
             Selector<ProductProvider, List<ProductModel>>(
               selector: (_, p) => p.recentlyViewedProducts,
               builder: (context, recentlyViewed, _) {
-                if (recentlyViewed.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+                if (recentlyViewed.isEmpty)
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
+                final compactCardWidth = screenWidth >= 900 ? 180.0 : 150.0;
                 return SliverToBoxAdapter(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SectionHeader(title: 'Recently Viewed'),
                       SizedBox(
-                        height: screenWidth >= 900 ? 250 : 220,
+                        height: screenWidth >= 900 ? 270 : 240,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: AppTheme.spacingL),
                           itemCount: recentlyViewed.length,
                           itemBuilder: (context, index) {
                             final product = recentlyViewed[index];
                             return Padding(
-                              padding: const EdgeInsets.only(right: AppTheme.spacingM),
-                              child: ProductCard(
-                                product: product,
-                                heroTagSuffix: '_recent_$index',
-                                isCompact: true,
-                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(product: product))),
+                              padding: const EdgeInsets.only(
+                                  right: AppTheme.spacingM),
+                              child: SizedBox(
+                                width: compactCardWidth,
+                                child: ProductCard(
+                                  product: product,
+                                  heroTagSuffix: '_recent_$index',
+                                  isCompact: false,
+                                  onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) => ProductDetailsScreen(
+                                              product: product))),
+                                ),
                               ),
                             );
                           },
@@ -197,7 +232,8 @@ class _HomeTabState extends State<HomeTab> {
                     height: 50,
                     child: ListView(
                       scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.spacingL),
                       children: [
                         CategoryChip(
                           label: 'All',
@@ -216,7 +252,9 @@ class _HomeTabState extends State<HomeTab> {
                               isSelected: _selectedCategory == category,
                               onTap: () {
                                 setState(() => _selectedCategory = category);
-                                context.read<ProductProvider>().setCategory(category);
+                                context
+                                    .read<ProductProvider>()
+                                    .setCategory(category);
                               },
                             ),
                           );
@@ -241,13 +279,18 @@ class _HomeTabState extends State<HomeTab> {
               selector: (_, p) => p.products,
               builder: (context, products, _) {
                 return SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
                   sliver: SliverGrid(
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: gridCrossAxisCount,
                       childAspectRatio: gridAspectRatio,
-                      crossAxisSpacing: screenWidth >= 600 ? AppTheme.spacingL : AppTheme.spacingM,
-                      mainAxisSpacing: screenWidth >= 600 ? AppTheme.spacingL : AppTheme.spacingM,
+                      crossAxisSpacing: screenWidth >= 600
+                          ? AppTheme.spacingL
+                          : AppTheme.spacingM,
+                      mainAxisSpacing: screenWidth >= 600
+                          ? AppTheme.spacingL
+                          : AppTheme.spacingM,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
@@ -255,7 +298,11 @@ class _HomeTabState extends State<HomeTab> {
                         return ProductCard(
                           product: product,
                           heroTagSuffix: '_grid_$index',
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductDetailsScreen(product: product))),
+                          onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      ProductDetailsScreen(product: product))),
                           onAddToCart: () {
                             context.read<CartProvider>().addItem(product);
                             final messenger = ScaffoldMessenger.of(context);
@@ -271,14 +318,14 @@ class _HomeTabState extends State<HomeTab> {
                         );
                       },
                       childCount: products.length,
-                      addAutomaticKeepAlives: false,
-                      addRepaintBoundaries: false,
+                      addAutomaticKeepAlives: true,
+                      addRepaintBoundaries: true,
                     ),
                   ),
                 );
               },
             ),
-            
+
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),
@@ -297,7 +344,8 @@ class _HomeTabState extends State<HomeTab> {
             OptimizedNetworkImage(
               imageUrl: product.mainImage,
               fit: BoxFit.cover,
-              memCacheWidth: (720 * MediaQuery.of(context).devicePixelRatio).round(),
+              memCacheWidth:
+                  (720 * MediaQuery.of(context).devicePixelRatio).round(),
               errorWidget: Container(
                 color: Colors.grey.shade300,
                 child: const Center(child: Icon(Icons.broken_image_outlined)),
@@ -323,7 +371,8 @@ class _HomeTabState extends State<HomeTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.electricPurple,
                     borderRadius: BorderRadius.circular(4),

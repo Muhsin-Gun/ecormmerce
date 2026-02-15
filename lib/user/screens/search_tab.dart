@@ -22,7 +22,7 @@ class _SearchTabState extends State<SearchTab> {
   final _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   Timer? _searchDebounce;
-  
+
   @override
   void dispose() {
     _searchDebounce?.cancel();
@@ -75,7 +75,7 @@ class _SearchTabState extends State<SearchTab> {
                   // Search Bar & Filter Button
                   _buildSearchBar(context, isDark),
                   const SizedBox(height: AppTheme.spacingM),
-                  
+
                   // Quick Category Filters
                   SizedBox(
                     height: 40,
@@ -95,7 +95,8 @@ class _SearchTabState extends State<SearchTab> {
                                 padding: const EdgeInsets.only(right: 8),
                                 child: CategoryChip(
                                   label: category,
-                                  isSelected: provider.selectedCategory == category,
+                                  isSelected:
+                                      provider.selectedCategory == category,
                                   onTap: () => provider.setCategory(category),
                                 ),
                               );
@@ -114,7 +115,8 @@ class _SearchTabState extends State<SearchTab> {
               child: Selector<ProductProvider, bool>(
                 selector: (_, p) => p.isLoading,
                 builder: (context, isLoading, child) {
-                  if (isLoading) return const Center(child: CircularProgressIndicator());
+                  if (isLoading)
+                    return const Center(child: CircularProgressIndicator());
                   return child!;
                 },
                 child: Selector<ProductProvider, List<ProductModel>>(
@@ -128,21 +130,29 @@ class _SearchTabState extends State<SearchTab> {
                             Icon(
                               Icons.search_off,
                               size: 64,
-                              color: isDark ? AppColors.gray600 : AppColors.gray400,
+                              color: isDark
+                                  ? AppColors.gray600
+                                  : AppColors.gray400,
                             ),
                             const SizedBox(height: 16),
                             Text(
                               'No products found',
                               style: theme.textTheme.titleMedium?.copyWith(
-                                color: isDark ? AppColors.gray500 : AppColors.gray500,
+                                color: isDark
+                                    ? AppColors.gray500
+                                    : AppColors.gray500,
                               ),
                             ),
                             Selector<ProductProvider, bool>(
-                              selector: (_, p) => p.selectedCategory != null || p.minPrice != null,
+                              selector: (_, p) =>
+                                  p.selectedCategory != null ||
+                                  p.minPrice != null,
                               builder: (context, hasFilters, _) {
                                 if (!hasFilters) return const SizedBox();
                                 return TextButton(
-                                  onPressed: () => context.read<ProductProvider>().clearFilters(),
+                                  onPressed: () => context
+                                      .read<ProductProvider>()
+                                      .clearFilters(),
                                   child: const Text('Clear Filters'),
                                 );
                               },
@@ -154,15 +164,23 @@ class _SearchTabState extends State<SearchTab> {
 
                     return LayoutBuilder(
                       builder: (context, constraints) {
-                        final crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+                        final screenWidth = MediaQuery.of(context).size.width;
+                        final isWebLike = screenWidth >= 900;
+                        final crossAxisCount =
+                            constraints.maxWidth > 600 ? 3 : 2;
+                        final gridAspectRatio = isWebLike
+                            ? 0.86
+                            : (screenWidth >= 600 ? 0.82 : 0.74);
+
                         return GridView.builder(
                           padding: const EdgeInsets.all(AppTheme.spacingM),
-                          cacheExtent: 200,
+                          cacheExtent: 800,
                           addAutomaticKeepAlives: false,
-                          addRepaintBoundaries: false,
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          addRepaintBoundaries: true,
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: crossAxisCount,
-                            childAspectRatio: 0.7,
+                            childAspectRatio: gridAspectRatio,
                             crossAxisSpacing: AppTheme.spacingM,
                             mainAxisSpacing: AppTheme.spacingM,
                           ),
@@ -176,7 +194,8 @@ class _SearchTabState extends State<SearchTab> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => ProductDetailsScreen(product: product),
+                                    builder: (_) =>
+                                        ProductDetailsScreen(product: product),
                                   ),
                                 );
                               },
@@ -266,8 +285,10 @@ class _FilterSortModalState extends State<_FilterSortModal> {
     final provider = context.read<ProductProvider>();
     _sortBy = provider.currentSortBy;
     _minRating = provider.minRating;
-    if (provider.minPrice != null) _minPriceController.text = provider.minPrice!.toStringAsFixed(0);
-    if (provider.maxPrice != null) _maxPriceController.text = provider.maxPrice!.toStringAsFixed(0);
+    if (provider.minPrice != null)
+      _minPriceController.text = provider.minPrice!.toStringAsFixed(0);
+    if (provider.maxPrice != null)
+      _maxPriceController.text = provider.maxPrice!.toStringAsFixed(0);
   }
 
   @override
@@ -279,13 +300,13 @@ class _FilterSortModalState extends State<_FilterSortModal> {
 
   void _applyFilters() {
     final provider = context.read<ProductProvider>();
-    
+
     // Sort
     provider.sortProducts(_sortBy);
-    
+
     // Rating
     provider.setMinRating(_minRating);
-    
+
     // Price
     double? min = double.tryParse(_minPriceController.text);
     double? max = double.tryParse(_maxPriceController.text);
@@ -325,7 +346,8 @@ class _FilterSortModalState extends State<_FilterSortModal> {
             children: [
               Text(
                 'Filter & Sort',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
               TextButton(
                 onPressed: _resetFilters,
@@ -389,22 +411,37 @@ class _FilterSortModalState extends State<_FilterSortModal> {
             children: [4.0, 3.0, 2.0, 1.0].map((rating) {
               final isSelected = _minRating == rating;
               return InkWell(
-                onTap: () => setState(() => _minRating = isSelected ? null : rating),
+                onTap: () =>
+                    setState(() => _minRating = isSelected ? null : rating),
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.electricPurple.withOpacity(0.1) : null,
+                    color: isSelected
+                        ? AppColors.electricPurple.withOpacity(0.1)
+                        : null,
                     border: Border.all(
-                      color: isSelected ? AppColors.electricPurple : Colors.grey.shade300,
+                      color: isSelected
+                          ? AppColors.electricPurple
+                          : Colors.grey.shade300,
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      Text(rating.toStringAsFixed(0), style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? AppColors.electricPurple : null)),
+                      Text(rating.toStringAsFixed(0),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isSelected
+                                  ? AppColors.electricPurple
+                                  : null)),
                       const Icon(Icons.star, size: 16, color: Colors.amber),
-                      Text('+', style: TextStyle(color: isSelected ? AppColors.electricPurple : null)),
+                      Text('+',
+                          style: TextStyle(
+                              color: isSelected
+                                  ? AppColors.electricPurple
+                                  : null)),
                     ],
                   ),
                 ),
