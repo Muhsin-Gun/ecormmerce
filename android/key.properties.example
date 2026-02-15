@@ -1,0 +1,4 @@
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=promarket_key
+storeFile=/absolute/path/to/pro_market_keystore.jks

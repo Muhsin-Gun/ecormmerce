@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/screens/order_management_screen.dart';
 import '../../admin/screens/admin_products_tab.dart'; // Employees can also manage inventory
 import '../../shared/screens/chat_list_screen.dart';
+import '../../shared/screens/broadcast_notification_screen.dart';
 
 class EmployeeDashboardScreen extends StatelessWidget {
   const EmployeeDashboardScreen({super.key});
@@ -95,6 +96,15 @@ class EmployeeDashboardScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(builder: (_) => const ChatListScreen()),
                     );
+                  },
+                ),
+                _buildToolCard(
+                  context,
+                  title: 'Send Alerts',
+                  icon: Icons.notifications_active,
+                  color: Colors.redAccent,
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const BroadcastNotificationScreen()));
                   },
                 ),
                 _buildToolCard(

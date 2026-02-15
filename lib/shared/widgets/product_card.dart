@@ -43,7 +43,7 @@ class ProductCard extends StatelessWidget {
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
+                blurRadius: 6,
                 offset: const Offset(0, 4),
               ),
             ],
@@ -51,9 +51,8 @@ class ProductCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Image Section
-              Expanded(
-                flex: 4,
+              AspectRatio(
+                aspectRatio: isCompact ? 1.0 : 1.08,
                 child: Stack(
                   children: [
                     ClipRRect(
@@ -167,7 +166,9 @@ class ProductCard extends StatelessWidget {
               ),
 
               // Details Section
-              Padding(
+              SizedBox(
+                height: isCompact ? 96 : 118,
+                child: Padding(
                 padding: const EdgeInsets.all(AppTheme.spacingS),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,6 +242,7 @@ class ProductCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
               ),
             ],
           ),

@@ -8,6 +8,7 @@ import '../../employee/screens/employee_dashboard_screen.dart';
 import '../../user/screens/user_main_screen.dart';
 import '../screens/login_screen.dart';
 import '../../core/theme/app_colors.dart';
+import '../../shared/widgets/first_run_permissions_gate.dart';
 
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
@@ -30,7 +31,7 @@ class AuthWrapper extends StatelessWidget {
 
         // 🚨 SUPER ADMIN ALWAYS ENTERS
         if (email.toLowerCase() == AppConstants.superAdminEmail.toLowerCase()) {
-          return const AdminDashboardScreen();
+          return const FirstRunPermissionsGate(child: AdminDashboardScreen());
         }
 
         return FutureBuilder<DocumentSnapshot>(
@@ -53,7 +54,7 @@ class AuthWrapper extends StatelessWidget {
 
             // 🚨 SUPER ADMIN BYPASSES EMAIL VERIFICATION
             if (userModel.isRoot) {
-              return const AdminDashboardScreen();
+              return const FirstRunPermissionsGate(child: AdminDashboardScreen());
             }
 
             if (!userModel.emailVerified) {
@@ -105,12 +106,12 @@ class AuthWrapper extends StatelessWidget {
             }
 
             if (userModel.role == 'admin') {
-              return const AdminDashboardScreen();
+              return const FirstRunPermissionsGate(child: AdminDashboardScreen());
             } else if (userModel.role == 'employee') {
-              return const EmployeeDashboardScreen();
+              return const FirstRunPermissionsGate(child: EmployeeDashboardScreen());
             }
 
-            return const UserMainScreen();
+            return const FirstRunPermissionsGate(child: UserMainScreen());
           },
         );
       },

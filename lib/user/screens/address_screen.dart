@@ -8,6 +8,7 @@ import '../../auth/models/user_model.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_feedback.dart';
 import 'package:uuid/uuid.dart';
+import 'package:geolocator/geolocator.dart';
 
 class AddressScreen extends StatelessWidget {
   const AddressScreen({super.key});
@@ -129,6 +130,23 @@ class AddressScreen extends StatelessWidget {
             children: [
               TextField(controller: labelController, decoration: const InputDecoration(labelText: 'Label (e.g. Home, Work)')),
               TextField(controller: streetController, decoration: const InputDecoration(labelText: 'Street Address')),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () async {
+                    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+                    if (!serviceEnabled) return;
+                    final permission = await Geolocator.requestPermission();
+                    if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+                      final pos = await Geolocator.getCurrentPosition();
+                      streetController.text = 'Lat ${pos.latitude.toStringAsFixed(5)}, Lng ${pos.longitude.toStringAsFixed(5)}';
+                      cityController.text = cityController.text.isEmpty ? 'Auto-detected area' : cityController.text;
+                    }
+                  },
+                  icon: const Icon(Icons.my_location),
+                  label: const Text('Use current location'),
+                ),
+              ),
               TextField(controller: cityController, decoration: const InputDecoration(labelText: 'City')),
               TextField(controller: zipController, decoration: const InputDecoration(labelText: 'Postal Code (Optional)')),
             ],
