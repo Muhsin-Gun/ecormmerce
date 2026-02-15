@@ -17,7 +17,9 @@ import '../../shared/providers/wishlist_provider.dart';
 import '../../shared/widgets/auth_button.dart';
 import '../../shared/widgets/optimized_network_image.dart';
 import '../../shared/widgets/product_card.dart';
+import '../../shared/widgets/app_snackbar.dart';
 import '../../main.dart';
+import 'cart_screen.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final ProductModel product;
@@ -52,21 +54,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     context.read<CartProvider>().addItem(widget.product, quantity: _quantity);
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text('${widget.product.name} added to cart'),
-        backgroundColor: AppColors.success,
-        duration: const Duration(seconds: 2),
-        action: SnackBarAction(
-          label: 'VIEW CART',
-          textColor: Colors.white,
-          onPressed: () {
-            // Use navigatorKey to avoid using stale context if widget is disposed
-            ProMarketApp.navigatorKey.currentState?.popUntil((route) => route.isFirst);
-          },
-        ),
-      ),
-    );
+    messenger.showSnackBar(AppSnackBar.success(
+      message: '${widget.product.name} added to cart',
+      actionLabel: 'VIEW CART',
+      onAction: () {
+        final navigator = ProMarketApp.navigatorKey.currentState;
+        if (navigator == null) return;
+        navigator.push(
+          MaterialPageRoute(builder: (_) => const CartScreen()),
+        );
+      },
+    ));
   }
 
   @override

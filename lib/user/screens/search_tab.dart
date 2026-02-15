@@ -18,7 +18,7 @@ class SearchTab extends StatefulWidget {
   State<SearchTab> createState() => _SearchTabState();
 }
 
-class _SearchTabState extends State<SearchTab> {
+class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixin {
   final _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   Timer? _searchDebounce;
@@ -33,7 +33,7 @@ class _SearchTabState extends State<SearchTab> {
 
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 220), () {
+    _searchDebounce = Timer(const Duration(milliseconds: 320), () {
       if (!mounted) return;
       context.read<ProductProvider>().searchProducts(value);
     });
@@ -53,6 +53,7 @@ class _SearchTabState extends State<SearchTab> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    super.build(context);
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -173,6 +174,7 @@ class _SearchTabState extends State<SearchTab> {
                             : (screenWidth >= 600 ? 0.82 : 0.74);
 
                         return GridView.builder(
+                          key: const PageStorageKey('search_grid_scroll'),
                           padding: const EdgeInsets.all(AppTheme.spacingM),
                           cacheExtent: 800,
                           addAutomaticKeepAlives: false,
@@ -213,6 +215,10 @@ class _SearchTabState extends State<SearchTab> {
       ),
     );
   }
+
+
+  @override
+  bool get wantKeepAlive => true;
 
   Widget _buildSearchBar(BuildContext context, bool isDark) {
     return ValueListenableBuilder<TextEditingValue>(

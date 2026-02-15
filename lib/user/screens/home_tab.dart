@@ -13,6 +13,7 @@ import '../../shared/widgets/optimized_network_image.dart';
 import '../../shared/widgets/product_card.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/widgets/skeleton_loader.dart';
+import '../../shared/widgets/app_snackbar.dart';
 import 'product_details_screen.dart';
 import 'notification_screen.dart';
 
@@ -24,6 +25,16 @@ class HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<HomeTab> {
+  void _openPage(Widget page) {
+    Navigator.of(context).push(PageRouteBuilder(
+      transitionDuration: const Duration(milliseconds: 260),
+      pageBuilder: (_, animation, __) => FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+        child: page,
+      ),
+    ));
+  }
+
   final ValueNotifier<int> _currentCarouselIndex = ValueNotifier<int>(0);
   String _selectedCategory = 'All';
 
@@ -58,21 +69,14 @@ class _HomeTabState extends State<HomeTab> {
             icon: const Icon(Icons.chat_bubble_outline),
             tooltip: 'Messages',
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const ConversationListScreen()),
-              );
+              _openPage(const ConversationListScreen());
             },
           ),
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
             tooltip: 'Notifications',
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const NotificationScreen()),
-              );
+              _openPage(const NotificationScreen());
             },
           ),
         ],
@@ -80,6 +84,7 @@ class _HomeTabState extends State<HomeTab> {
       body: RefreshIndicator(
         onRefresh: () async => await context.read<ProductProvider>().refresh(),
         child: CustomScrollView(
+          key: const PageStorageKey('home_scroll'),
           cacheExtent: 500,
           slivers: [
             // 0. Loading State - Only rebuilds if loading changes
@@ -205,11 +210,8 @@ class _HomeTabState extends State<HomeTab> {
                                   product: product,
                                   heroTagSuffix: '_recent_$index',
                                   isCompact: false,
-                                  onTap: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (_) => ProductDetailsScreen(
-                                              product: product))),
+                                  onTap: () => _openPage(
+                                      ProductDetailsScreen(product: product)),
                                 ),
                               ),
                             );
@@ -297,22 +299,15 @@ class _HomeTabState extends State<HomeTab> {
                         return ProductCard(
                           product: product,
                           heroTagSuffix: '_grid_$index',
-                          onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                      ProductDetailsScreen(product: product))),
+                          onTap: () => _openPage(
+                              ProductDetailsScreen(product: product)),
                           onAddToCart: () {
                             context.read<CartProvider>().addItem(product);
                             final messenger = ScaffoldMessenger.of(context);
                             messenger.clearSnackBars();
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text('${product.name} added to cart'),
-                                backgroundColor: AppColors.success,
-                                duration: const Duration(seconds: 1),
-                              ),
-                            );
+                            messenger.showSnackBar(AppSnackBar.success(
+                              message: '${product.name} added to cart',
+                            ));
                           },
                         );
                       },

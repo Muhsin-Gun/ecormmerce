@@ -92,9 +92,10 @@ flutter:
 
 flutter_native_splash:
   color: "#0b1220"
-  image: assets/images/splash_static.png
+  image: assets/icons/foreground.png
   android: true
   ios: true
+  web: true
   android_disable_fullscreen: true
 
 flutter_launcher_icons:
