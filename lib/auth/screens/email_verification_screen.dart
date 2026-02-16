@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_feedback.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_button.dart';
 
@@ -14,7 +15,6 @@ class EmailVerificationScreen extends StatefulWidget {
 }
 
 class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
-  bool _isEmailVerified = false;
   Timer? _timer;
   bool _canResendEmail = false;
   int _countdown = 60;
@@ -64,15 +64,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     
     if (authProvider.isEmailVerified) {
       _timer?.cancel();
-      setState(() => _isEmailVerified = true);
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Email verified successfully!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppFeedback.success(context, 'Email verified successfully!');
         // Navigation is handled by AuthWrapper
       }
     }
@@ -85,13 +79,14 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     final success = await authProvider.sendEmailVerification();
     
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Verification email sent!'),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      AppFeedback.success(context, 'Verification email sent!');
       _startCountdown();
+    } else if (mounted && authProvider.errorMessage != null) {
+      AppFeedback.error(
+        context,
+        authProvider.errorMessage!,
+        nextStep: 'Retry in a moment.',
+      );
     }
   }
 
@@ -121,7 +116,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
               Container(
                 padding: const EdgeInsets.all(AppTheme.spacingXL),
                 decoration: BoxDecoration(
-                  color: AppColors.info.withOpacity(0.1),
+                  color: AppColors.info.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(

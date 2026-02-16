@@ -5,7 +5,11 @@
     <application
         android:label="ecormmerce"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher">
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="promarket_alerts_channel" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

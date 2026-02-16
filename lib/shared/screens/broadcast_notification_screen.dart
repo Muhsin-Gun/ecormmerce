@@ -1,6 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/constants/constants.dart';
+import '../../core/utils/app_feedback.dart';
+import '../../shared/services/audit_log_service.dart';
+
 class BroadcastNotificationScreen extends StatefulWidget {
   const BroadcastNotificationScreen({super.key});
 
@@ -24,22 +28,178 @@ class _BroadcastNotificationScreenState
   }
 
   Future<void> _send() async {
-    if (_titleController.text.trim().isEmpty ||
-        _bodyController.text.trim().isEmpty) return;
-    setState(() => _sending = true);
-    await FirebaseFirestore.instance.collection('notification_campaigns').add({
-      'title': _titleController.text.trim(),
-      'body': _bodyController.text.trim(),
-      'targetRole': _target,
-      'createdAt': FieldValue.serverTimestamp(),
-      'status': 'queued',
-    });
-    if (mounted) {
-      setState(() => _sending = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Campaign queued successfully.')),
+    final title = _titleController.text.trim();
+    final body = _bodyController.text.trim();
+    if (title.isEmpty || body.isEmpty) {
+      AppFeedback.info(
+        context,
+        'Enter both title and message before sending.',
       );
+      return;
     }
+
+    setState(() => _sending = true);
+
+    final campaigns = FirebaseFirestore.instance.collection(
+      'notification_campaigns',
+    );
+    final campaignRef = campaigns.doc();
+    final startedAt = DateTime.now();
+
+    try {
+      await campaignRef.set({
+        'title': title,
+        'body': body,
+        'targetRole': _target,
+        'createdAt': FieldValue.serverTimestamp(),
+        'status': 'sending',
+      });
+
+      final users = await _targetedUsers();
+      final delivered = await _fanOutNotifications(
+        users,
+        title: title,
+        body: body,
+      );
+      final durationMs = DateTime.now().difference(startedAt).inMilliseconds;
+
+      await campaignRef.update({
+        'status': 'sent',
+        'deliveredCount': delivered,
+        'durationMs': durationMs,
+        'sentAt': FieldValue.serverTimestamp(),
+      });
+      await AuditLogService.log(
+        action: 'BROADCAST_SENT',
+        target: campaignRef.id,
+        metadata: {
+          'target': _target,
+          'deliveredCount': delivered,
+        },
+      );
+
+      if (!mounted) return;
+      AppFeedback.success(
+        context,
+        'Campaign sent to $delivered user(s).',
+      );
+    } catch (e, st) {
+      await _markCampaignFailed(
+        campaignRef: campaignRef,
+        title: title,
+        body: body,
+        error: e,
+      );
+      await AuditLogService.log(
+        action: 'BROADCAST_FAILED',
+        target: campaignRef.id,
+        metadata: {
+          'target': _target,
+          'error': e.toString(),
+        },
+      );
+      debugPrint('Broadcast send failed: $e\n$st');
+
+      if (!mounted) return;
+      AppFeedback.error(
+        context,
+        e,
+        fallbackMessage: 'Could not send campaign.',
+        nextStep: 'Check network and retry.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _sending = false);
+      }
+    }
+  }
+
+  Future<void> _markCampaignFailed({
+    required DocumentReference<Map<String, dynamic>> campaignRef,
+    required String title,
+    required String body,
+    required Object error,
+  }) async {
+    try {
+      await campaignRef.set({
+        'title': title,
+        'body': body,
+        'targetRole': _target,
+        'createdAt': FieldValue.serverTimestamp(),
+        'status': 'failed',
+        'error': error.toString(),
+      }, SetOptions(merge: true));
+    } catch (writeError) {
+      debugPrint('Could not update campaign status to failed: $writeError');
+    }
+  }
+
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _targetedUsers() async {
+    final usersSnapshot = await FirebaseFirestore.instance
+        .collection(AppConstants.usersCollection)
+        .get();
+
+    final notificationEnabledDocs = usersSnapshot.docs.where((doc) {
+      final enabled = doc.data()['notificationsEnabled'];
+      return enabled != false;
+    }).toList();
+
+    if (_target == 'all') {
+      return notificationEnabledDocs;
+    }
+
+    final acceptedRoles = _target == 'user'
+        ? <String>{AppConstants.roleClient, 'user'}
+        : <String>{AppConstants.roleEmployee};
+
+    return notificationEnabledDocs.where((doc) {
+      final role = (doc.data()['role'] ?? '').toString().toLowerCase();
+      return acceptedRoles.contains(role);
+    }).toList();
+  }
+
+  Future<int> _fanOutNotifications(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> users, {
+    required String title,
+    required String body,
+  }) async {
+    if (users.isEmpty) return 0;
+
+    final firestore = FirebaseFirestore.instance;
+    WriteBatch batch = firestore.batch();
+    int opCount = 0;
+    int delivered = 0;
+
+    for (final userDoc in users) {
+      final notificationRef = userDoc.reference
+          .collection(AppConstants.notificationsCollection)
+          .doc();
+      batch.set(notificationRef, {
+        'title': title,
+        'body': body,
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+        'type': 'promo',
+        'data': {
+          'campaign': true,
+          'target': _target,
+        },
+      });
+      opCount++;
+      delivered++;
+
+      // Keep under Firestore batch limits.
+      if (opCount >= 450) {
+        await batch.commit();
+        batch = firestore.batch();
+        opCount = 0;
+      }
+    }
+
+    if (opCount > 0) {
+      await batch.commit();
+    }
+    return delivered;
   }
 
   @override
@@ -50,7 +210,8 @@ class _BroadcastNotificationScreenState
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
-            'Send app notifications and email campaigns from here. Backend worker should process queued campaigns.',
+            'Campaigns are delivered immediately to users in-app. '
+            'Phone push timing can still depend on FCM token/permission state and platform delivery.',
           ),
           const SizedBox(height: 16),
           TextField(
@@ -65,7 +226,7 @@ class _BroadcastNotificationScreenState
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _target,
+            initialValue: _target,
             decoration: const InputDecoration(labelText: 'Audience'),
             items: const [
               DropdownMenuItem(value: 'all', child: Text('All users')),
@@ -78,7 +239,7 @@ class _BroadcastNotificationScreenState
           ElevatedButton.icon(
             onPressed: _sending ? null : _send,
             icon: const Icon(Icons.send),
-            label: Text(_sending ? 'Sending...' : 'Queue campaign'),
+            label: Text(_sending ? 'Sending now...' : 'Send Now'),
           ),
         ],
       ),

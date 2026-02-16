@@ -33,24 +33,23 @@ class _ProfileTabState extends State<ProfileTab>
   bool get wantKeepAlive => true;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_didLoad) return;
-    final user = context.read<AuthProvider>().userModel;
-    if (user == null) return;
-    _didLoad = true;
-    context.read<OrderProvider>().loadUserOrders(user.userId);
-    context.read<WishlistProvider>().loadWishlist();
-  }
-
-  @override
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final user = context.watch<AuthProvider>().userModel;
 
-    if (user == null) return const SizedBox.shrink();
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    _loadUserDataIfNeeded(user.userId);
+
+    final avatarUrl = user.profileImageUrl;
+    final avatarCacheKey = avatarUrl == null
+        ? null
+        : '${avatarUrl}_${user.updatedAt.millisecondsSinceEpoch}';
 
     return Scaffold(
       body: CustomScrollView(
@@ -73,9 +72,11 @@ class _ProfileTabState extends State<ProfileTab>
                     radius: 32,
                     backgroundColor: Colors.white,
                     child: ClipOval(
-                      child: user.profileImageUrl != null
+                      child: avatarUrl != null
                           ? CachedNetworkImage(
-                              imageUrl: user.profileImageUrl!,
+                              key: ValueKey(avatarCacheKey),
+                              cacheKey: avatarCacheKey,
+                              imageUrl: avatarUrl,
                               width: 64,
                               height: 64,
                               fit: BoxFit.cover,
@@ -242,15 +243,20 @@ class _ProfileTabState extends State<ProfileTab>
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-                child: OutlinedButton.icon(
-                  onPressed: () => context.read<AuthProvider>().signOut(),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colorScheme.error,
-                    side: BorderSide(color: colorScheme.error.withValues(alpha: 0.5)),
-                    minimumSize: const Size(double.infinity, 48),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => context.read<AuthProvider>().signOut(),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colorScheme.error,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                    ),
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Logout'),
                   ),
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Logout'),
                 ),
               ),
             ]),
@@ -282,6 +288,16 @@ class _ProfileTabState extends State<ProfileTab>
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: onTap,
     );
+  }
+
+  void _loadUserDataIfNeeded(String userId) {
+    if (_didLoad) return;
+    _didLoad = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<OrderProvider>().loadUserOrders(userId);
+      context.read<WishlistProvider>().loadWishlist();
+    });
   }
 }
 

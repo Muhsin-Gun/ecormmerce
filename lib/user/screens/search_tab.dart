@@ -176,7 +176,7 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
                         return GridView.builder(
                           key: const PageStorageKey('search_grid_scroll'),
                           padding: const EdgeInsets.all(AppTheme.spacingM),
-                          cacheExtent: 800,
+                          cacheExtent: 420,
                           addAutomaticKeepAlives: false,
                           addRepaintBoundaries: true,
                           gridDelegate:

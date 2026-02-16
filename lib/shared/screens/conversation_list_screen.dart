@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -46,7 +45,7 @@ class ConversationListScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: AppColors.electricPurple.withOpacity(0.1),
+                      color: AppColors.electricPurple.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -128,7 +127,7 @@ class ConversationListScreen extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: 28,
-                        backgroundColor: AppColors.electricPurple.withOpacity(0.1),
+                        backgroundColor: AppColors.electricPurple.withValues(alpha: 0.1),
                         child: Text(
                           otherUserName.isNotEmpty ? otherUserName[0].toUpperCase() : '?',
                           style: const TextStyle(
@@ -137,8 +136,7 @@ class ConversationListScreen extends StatelessWidget {
                             fontSize: 20,
                           ),
                         ),
-                      ).animate(onPlay: (c) => c.repeat())
-                       .shimmer(delay: 3000.ms, duration: 1500.ms),
+                      ),
                       if (isUnread)
                         Positioned(
                           right: 0,
@@ -151,8 +149,7 @@ class ConversationListScreen extends StatelessWidget {
                               shape: BoxShape.circle,
                               border: Border.all(color: isDark ? AppColors.darkBackground : Colors.white, width: 2),
                             ),
-                          ).animate(onPlay: (c) => c.repeat(reverse: true))
-                           .scale(begin: const Offset(0.8, 0.8), end: const Offset(1.1, 1.1), duration: 1000.ms),
+                          ),
                       ),
                       Positioned(
                         right: 0,
@@ -214,9 +211,7 @@ class ConversationListScreen extends StatelessWidget {
                         const Icon(Icons.chevron_right, size: 16, color: AppColors.gray300),
                     ],
                   ),
-                ).animate()
-                 .fadeIn(delay: (100 * index).ms)
-                 .slideX(begin: 0.1, curve: Curves.easeOutQuad);
+                );
               },
             );
         },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_feedback.dart';
 import '../../core/utils/validators.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_button.dart';
@@ -37,12 +38,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     if (success && mounted) {
       setState(() => _emailSent = true);
+      AppFeedback.success(
+        context,
+        'Reset link sent. Check your inbox and spam folder.',
+      );
     } else if (mounted && authProvider.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(authProvider.errorMessage!),
-          backgroundColor: AppColors.error,
-        ),
+      AppFeedback.error(
+        context,
+        authProvider.errorMessage!,
+        nextStep: 'Confirm your email and try again.',
       );
     }
   }
@@ -69,7 +73,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 Container(
                   padding: const EdgeInsets.all(AppTheme.spacingXL),
                   decoration: BoxDecoration(
-                    color: AppColors.electricPurple.withOpacity(0.1),
+                    color: AppColors.electricPurple.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(

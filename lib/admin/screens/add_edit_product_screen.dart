@@ -12,6 +12,7 @@ import '../../shared/providers/product_provider.dart';
 import '../../shared/widgets/auth_button.dart';
 import '../../shared/widgets/auth_text_field.dart';
 import '../../shared/services/cloudinary_service.dart';
+import '../../shared/services/audit_log_service.dart';
 import 'dart:io';
 
 class AddEditProductScreen extends StatefulWidget {
@@ -103,12 +104,11 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
           }
         } catch (e) {
            if (mounted) {
-             ScaffoldMessenger.of(context).showSnackBar(
-               SnackBar(
-                 content: Text('Image Upload Failed: $e'),
-                 backgroundColor: AppColors.error,
-                 duration: const Duration(seconds: 5),
-               ),
+             AppFeedback.error(
+               context,
+               e,
+               fallbackMessage: 'Image upload failed.',
+               nextStep: 'Choose another image or retry.',
              );
            }
            // Stop saving if image upload fails
@@ -133,23 +133,49 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
           createdAt: DateTime.now(),
           images: imageUrl.isNotEmpty ? [imageUrl] : [],
         );
-        
-        await provider.addProduct(newProduct);
+        final created = await provider.addProduct(newProduct);
+        if (!created) {
+          throw Exception('Could not create product.');
+        }
+        await AuditLogService.log(
+          action: 'PRODUCT_CREATE',
+          target: name,
+          metadata: {
+            'category': _selectedCategory,
+            'price': price,
+            'stock': stock,
+          },
+        );
       } else {
         // UPDATE
         final updatedProduct = widget.product!.copyWith(
           name: name,
           description: desc,
+          price: price,
           imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
           category: _selectedCategory,
           brand: brand,
           stock: stock,
-          isActive: _isActive, // Use state variable
+          images: imageUrl.isNotEmpty ? [imageUrl] : widget.product!.images,
+          isActive: _isActive,
           isOnSale: _isOnSale,
           updatedAt: DateTime.now(),
         );
-        
-        await provider.updateProduct(updatedProduct);
+
+        final updated = await provider.updateProduct(updatedProduct);
+        if (!updated) {
+          throw Exception('Could not update product.');
+        }
+        await AuditLogService.log(
+          action: 'PRODUCT_UPDATE',
+          target: updatedProduct.productId,
+          metadata: {
+            'name': updatedProduct.name,
+            'category': updatedProduct.category,
+            'price': updatedProduct.price,
+            'stock': updatedProduct.stock,
+          },
+        );
       }
 
       if (mounted) {
@@ -225,7 +251,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               ),
               const SizedBox(height: 16),
                DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 decoration: InputDecoration(
                   labelText: 'Category',
                   prefixIcon: const Icon(Icons.category, color: AppColors.gray500),
@@ -306,13 +332,13 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               SwitchListTile(
                 title: const Text('On Sale'),
                 value: _isOnSale,
-                activeColor: AppColors.electricPurple,
+                activeThumbColor: AppColors.electricPurple,
                 onChanged: (val) => setState(() => _isOnSale = val),
               ),
               SwitchListTile(
                 title: const Text('Is Active (Visible in App)'),
                 value: _isActive,
-                activeColor: AppColors.success,
+                activeThumbColor: AppColors.success,
                 onChanged: (val) => setState(() => _isActive = val),
               ),
               const SizedBox(height: 32),

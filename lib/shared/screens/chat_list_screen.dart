@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../services/chat_service.dart';
 import '../models/message_model.dart';
 import '../providers/message_provider.dart';
 import 'chat_screen.dart';
@@ -19,11 +16,13 @@ class ChatListScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final messageProvider = context.watch<MessageProvider>();
-    final currentUser = context.read<AuthProvider>().firebaseUser;
+    final authProvider = context.read<AuthProvider>();
+    final currentUser = authProvider.firebaseUser;
+    final isEmployee = authProvider.userModel?.role == 'employee';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Messages'),
+        title: Text(isEmployee ? 'Employee Message Center' : 'Admin Message Center'),
         centerTitle: true,
       ),
       body: StreamBuilder<List<ConversationModel>>(
@@ -56,12 +55,10 @@ class ChatListScreen extends StatelessWidget {
               final conversation = conversations[index];
               
               // Find other participant (if admin, find the client)
-              String otherUserId = '';
               String otherUserName = 'User';
               
               for (final id in conversation.participants) {
                 if (id != currentUser?.uid) {
-                  otherUserId = id;
                   otherUserName = conversation.participantNames[id] ?? 'User';
                   break;
                 }
@@ -76,7 +73,7 @@ class ChatListScreen extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 28,
-                      backgroundColor: AppColors.primaryIndigo.withOpacity(0.1),
+                      backgroundColor: AppColors.primaryIndigo.withValues(alpha: 0.1),
                       child: Text(
                         otherUserName.isNotEmpty ? otherUserName[0].toUpperCase() : 'U',
                         style: const TextStyle(
@@ -85,8 +82,7 @@ class ChatListScreen extends StatelessWidget {
                           fontSize: 20,
                         ),
                       ),
-                    ).animate(onPlay: (c) => c.repeat())
-                     .shimmer(delay: 3000.ms, duration: 1500.ms),
+                    ),
                     if (isUnread)
                       Positioned(
                         right: 0,
@@ -99,8 +95,7 @@ class ChatListScreen extends StatelessWidget {
                             shape: BoxShape.circle,
                             border: Border.all(color: isDark ? AppColors.darkBackground : Colors.white, width: 2),
                           ),
-                        ).animate(onPlay: (c) => c.repeat(reverse: true))
-                         .scale(begin: const Offset(0.8, 0.8), end: const Offset(1.1, 1.1), duration: 1000.ms),
+                        ),
                       ),
                   ],
                 ),
@@ -162,9 +157,7 @@ class ChatListScreen extends StatelessWidget {
                     ),
                   );
                 },
-              ).animate()
-               .fadeIn(delay: (100 * index).ms)
-               .slideX(begin: 0.1, curve: Curves.easeOutQuad);
+              );
             },
           );
         },

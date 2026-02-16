@@ -101,6 +101,7 @@ flutter_native_splash:
 flutter_launcher_icons:
   android: true
   ios: true
+  remove_alpha_ios: true
   image_path_android: "assets/icons/foreground.png"
   image_path_ios: "assets/icons/foreground.png"
   adaptive_icon_background: "assets/icons/background.png"

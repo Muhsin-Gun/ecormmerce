@@ -6,9 +6,9 @@ import 'dart:convert';
 /// Handles sending and verifying OTP codes through backend APIs.
 class EmailVerificationService {
   static const String _defaultBaseUrl = 'http://localhost:3000';
-  static const String _apiBaseUrl = String.fromEnvironment(
+  static const String _configuredBaseUrl = String.fromEnvironment(
     'OTP_API_BASE_URL',
-    defaultValue: _defaultBaseUrl,
+    defaultValue: '',
   );
 
   /// Send OTP to user's email.
@@ -127,7 +127,7 @@ class EmailVerificationService {
     required String path,
     required Map<String, dynamic> body,
   }) async {
-    final uri = Uri.parse('$_apiBaseUrl$path');
+    final uri = Uri.parse('${_resolveBaseUrl()}$path');
     try {
       final response = await http
           .post(
@@ -148,7 +148,38 @@ class EmailVerificationService {
       throw Exception(decoded['message'] ?? 'Request failed');
     } catch (e) {
       debugPrint('OTP API error on $path: $e');
+      final raw = e.toString().toLowerCase();
+      if (raw.contains('timed out')) {
+        throw Exception(
+          'Request timed out. Retry, or sign in with another account.',
+        );
+      }
+      if (raw.contains('connection refused') ||
+          raw.contains('failed host lookup') ||
+          raw.contains('socketexception') ||
+          raw.contains('clientexception')) {
+        throw Exception(
+          'Verification service is unreachable. Start the backend OTP server and try again.',
+        );
+      }
       rethrow;
+    }
+  }
+
+  String _resolveBaseUrl() {
+    if (_configuredBaseUrl.isNotEmpty) {
+      return _configuredBaseUrl;
+    }
+    if (kIsWeb) {
+      final origin = Uri.base;
+      final host = origin.host.isEmpty ? 'localhost' : origin.host;
+      return '${origin.scheme}://$host:3000';
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'http://10.0.2.2:3000';
+      default:
+        return _defaultBaseUrl;
     }
   }
 }

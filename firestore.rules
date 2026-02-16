@@ -1,37 +1,238 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper functions
+
+    // Auth helpers
     function isAuthenticated() {
       return request.auth != null;
     }
-    
+
+    function userDocExists() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function isAdmin() {
-      return isAuthenticated() && (
-        request.auth.token.email == 'muhsin57891@gmail.com' || 
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'admin')
-      );
-    }
-    
-    function isEmployee() {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             (getUserData().role == 'employee' || getUserData().role == 'admin');
+    function currentUserRole() {
+      return userDocExists() ? getUserData().role : null;
     }
 
-    function isOrderOwner() {
-      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    function isSuperAdmin() {
+      return isAuthenticated() &&
+        request.auth.token.email == 'muhsin57891@gmail.com';
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        isSuperAdmin() ||
+        (userDocExists() && currentUserRole() == 'admin')
+      );
+    }
+
+    function isEmployee() {
+      return isAuthenticated() &&
+        userDocExists() &&
+        (currentUserRole() == 'employee' || currentUserRole() == 'admin');
+    }
+
+    function isSelf(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Validation helpers
+    function isNonEmptyString(value, maxLength) {
+      return value is string && value.size() > 0 && value.size() <= maxLength;
+    }
+
+    function isOptionalString(value, maxLength) {
+      return value == null || (value is string && value.size() <= maxLength);
+    }
+
+    function isNonNegativeNumber(value) {
+      return value is number && value >= 0;
+    }
+
+    function isDateLike(value) {
+      return value is timestamp || value is string || value == request.time;
     }
 
     function isConversationParticipant(conversationId) {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/conversations/$(conversationId)) &&
-        request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+        request.auth.uid in
+          get(/databases/$(database)/documents/conversations/$(conversationId))
+            .data
+            .participants;
+    }
+
+    // Product validation
+    function isValidProductDocument(data) {
+      return data.keys().hasAll(['name', 'description', 'price', 'stock', 'category']) &&
+        isNonEmptyString(data.name, 120) &&
+        data.description is string &&
+        data.description.size() <= 4000 &&
+        isNonNegativeNumber(data.price) &&
+        data.stock is int &&
+        data.stock >= 0 &&
+        isNonEmptyString(data.category, 80) &&
+        (!data.keys().hasAny(['imageUrl']) || isOptionalString(data.imageUrl, 3000)) &&
+        (!data.keys().hasAny(['brand']) || isOptionalString(data.brand, 120)) &&
+        (!data.keys().hasAny(['isOnSale']) || data.isOnSale is bool) &&
+        (!data.keys().hasAny(['salePrice']) || isNonNegativeNumber(data.salePrice)) &&
+        (!data.keys().hasAny(['isActive']) || data.isActive is bool) &&
+        (!data.keys().hasAny(['averageRating']) ||
+          (data.averageRating is number &&
+            data.averageRating >= 0 &&
+            data.averageRating <= 5)) &&
+        (!data.keys().hasAny(['reviewCount']) ||
+          (data.reviewCount is int && data.reviewCount >= 0));
+    }
+
+    function isValidProductStockOnlyUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'stock',
+        'updatedAt',
+      ]) &&
+      request.resource.data.stock is int &&
+      request.resource.data.stock >= 0 &&
+      (!request.resource.data.keys().hasAny(['updatedAt']) ||
+        isDateLike(request.resource.data.updatedAt));
+    }
+
+    function isValidProductRatingOnlyUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'averageRating',
+        'reviewCount',
+        'updatedAt',
+      ]) &&
+      request.resource.data.averageRating is number &&
+      request.resource.data.averageRating >= 0 &&
+      request.resource.data.averageRating <= 5 &&
+      request.resource.data.reviewCount is int &&
+      request.resource.data.reviewCount >= 0 &&
+      (!request.resource.data.keys().hasAny(['updatedAt']) ||
+        isDateLike(request.resource.data.updatedAt));
+    }
+
+    // User validation
+    function isValidSelfUserWrite(userId) {
+      return request.resource.data.userId == userId &&
+        isNonEmptyString(request.resource.data.email, 254) &&
+        isNonEmptyString(request.resource.data.name, 100) &&
+        request.resource.data.role in ['client', 'employee', 'admin'] &&
+        request.resource.data.roleStatus in ['pending', 'approved', 'suspended', 'rejected'] &&
+        (!request.resource.data.keys().hasAny(['phone']) ||
+          isOptionalString(request.resource.data.phone, 32)) &&
+        (!request.resource.data.keys().hasAny(['profileImageUrl']) ||
+          isOptionalString(request.resource.data.profileImageUrl, 3000)) &&
+        (!request.resource.data.keys().hasAny(['darkMode']) ||
+          request.resource.data.darkMode is bool) &&
+        (!request.resource.data.keys().hasAny(['notificationsEnabled']) ||
+          request.resource.data.notificationsEnabled is bool) &&
+        (!request.resource.data.keys().hasAny(['emailVerified']) ||
+          request.resource.data.emailVerified is bool) &&
+        (!request.resource.data.keys().hasAny(['isRoot']) ||
+          request.resource.data.isRoot is bool) &&
+        (!request.resource.data.keys().hasAny(['createdAt']) ||
+          isDateLike(request.resource.data.createdAt)) &&
+        (!request.resource.data.keys().hasAny(['updatedAt']) ||
+          isDateLike(request.resource.data.updatedAt));
+    }
+
+    function isSafeSelfUserUpdate(userId) {
+      return isSelf(userId) &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.roleStatus == resource.data.roleStatus &&
+        request.resource.data.isRoot == resource.data.isRoot &&
+        request.resource.data.isApproved == resource.data.isApproved &&
+        isValidSelfUserWrite(userId);
+    }
+
+    // Notifications and audit validation
+    function isValidNotificationDocument() {
+      return request.resource.data.keys().hasAll(['title', 'body', 'type']) &&
+        isNonEmptyString(request.resource.data.title, 120) &&
+        isNonEmptyString(request.resource.data.body, 2000) &&
+        isNonEmptyString(request.resource.data.type, 32) &&
+        (!request.resource.data.keys().hasAny(['isRead']) ||
+          request.resource.data.isRead is bool) &&
+        (!request.resource.data.keys().hasAny(['timestamp']) ||
+          isDateLike(request.resource.data.timestamp));
+    }
+
+    function isValidCampaignDocument() {
+      return request.resource.data.keys().hasAll([
+        'title',
+        'body',
+        'targetRole',
+        'status',
+      ]) &&
+      isNonEmptyString(request.resource.data.title, 120) &&
+      isNonEmptyString(request.resource.data.body, 2000) &&
+      request.resource.data.targetRole in ['all', 'user', 'employee', 'admin'] &&
+      request.resource.data.status in ['sending', 'sent', 'failed'] &&
+      (!request.resource.data.keys().hasAny(['deliveredCount']) ||
+        (request.resource.data.deliveredCount is int &&
+          request.resource.data.deliveredCount >= 0)) &&
+      (!request.resource.data.keys().hasAny(['durationMs']) ||
+        (request.resource.data.durationMs is int &&
+          request.resource.data.durationMs >= 0)) &&
+      (!request.resource.data.keys().hasAny(['createdAt']) ||
+        isDateLike(request.resource.data.createdAt)) &&
+      (!request.resource.data.keys().hasAny(['sentAt']) ||
+        isDateLike(request.resource.data.sentAt));
+    }
+
+    function isValidAuditDocument() {
+      return request.resource.data.keys().hasAll(['action', 'target']) &&
+        isNonEmptyString(request.resource.data.action, 80) &&
+        isNonEmptyString(request.resource.data.target, 160) &&
+        (!request.resource.data.keys().hasAny(['by']) ||
+          isOptionalString(request.resource.data.by, 254)) &&
+        (!request.resource.data.keys().hasAny(['uid']) ||
+          isOptionalString(request.resource.data.uid, 128)) &&
+        (!request.resource.data.keys().hasAny(['metadata']) ||
+          request.resource.data.metadata is map) &&
+        (!request.resource.data.keys().hasAny(['timestamp']) ||
+          isDateLike(request.resource.data.timestamp));
+    }
+
+    // Orders validation
+    function isValidOrderCreate() {
+      return request.resource.data.keys().hasAll([
+        'userId',
+        'items',
+        'subtotal',
+        'total',
+        'status',
+        'paymentMethod',
+        'paymentStatus',
+        'createdAt',
+        'updatedAt',
+      ]) &&
+      request.resource.data.userId == request.auth.uid &&
+      request.resource.data.items is list &&
+      request.resource.data.items.size() > 0 &&
+      isNonNegativeNumber(request.resource.data.subtotal) &&
+      isNonNegativeNumber(request.resource.data.total) &&
+      isNonEmptyString(request.resource.data.status, 32) &&
+      isNonEmptyString(request.resource.data.paymentMethod, 32) &&
+      isNonEmptyString(request.resource.data.paymentStatus, 32) &&
+      isDateLike(request.resource.data.createdAt) &&
+      isDateLike(request.resource.data.updatedAt) &&
+      (!request.resource.data.keys().hasAny(['discount']) ||
+        isNonNegativeNumber(request.resource.data.discount)) &&
+      (!request.resource.data.keys().hasAny(['deliveryFee']) ||
+        isNonNegativeNumber(request.resource.data.deliveryFee)) &&
+      (!request.resource.data.keys().hasAny(['deliveryAddress']) ||
+        request.resource.data.deliveryAddress is map) &&
+      (!request.resource.data.keys().hasAny(['customerNote']) ||
+        isOptionalString(request.resource.data.customerNote, 1000));
     }
 
     function orderPaymentUpdateAllowed() {
@@ -40,82 +241,258 @@ service cloud.firestore {
         'mpesaCheckoutRequestId',
         'mpesaMerchantRequestId',
         'mpesaPhoneNumber',
-        'updatedAt'
-      ]) && request.resource.data.userId == resource.data.userId;
+        'updatedAt',
+      ]) &&
+      request.resource.data.userId == resource.data.userId &&
+      isOptionalString(request.resource.data.paymentStatus, 32) &&
+      isOptionalString(request.resource.data.mpesaCheckoutRequestId, 140) &&
+      isOptionalString(request.resource.data.mpesaMerchantRequestId, 140) &&
+      isOptionalString(request.resource.data.mpesaPhoneNumber, 32) &&
+      (!request.resource.data.keys().hasAny(['updatedAt']) ||
+        isDateLike(request.resource.data.updatedAt));
     }
 
-    // Products: Everyone can read, only admin can write
+    function staffOrderUpdateAllowed() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'status',
+        'paymentStatus',
+        'updatedAt',
+        'deliveredAt',
+        'cancelledAt',
+        'assignedToEmployeeId',
+        'assignedToEmployeeName',
+        'adminNote',
+        'refundAmount',
+        'refundReason',
+        'refundedAt',
+        'mpesaReceiptNumber',
+        'mpesaTransactionId',
+        'mpesaTransactionDate',
+        'mpesaCheckoutRequestId',
+        'mpesaMerchantRequestId',
+        'mpesaPhoneNumber',
+      ]) &&
+      request.resource.data.userId == resource.data.userId &&
+      request.resource.data.items == resource.data.items &&
+      request.resource.data.subtotal == resource.data.subtotal &&
+      request.resource.data.total == resource.data.total &&
+      request.resource.data.deliveryAddress == resource.data.deliveryAddress &&
+      request.resource.data.paymentMethod == resource.data.paymentMethod &&
+      (!request.resource.data.keys().hasAny(['status']) ||
+        isOptionalString(request.resource.data.status, 32)) &&
+      (!request.resource.data.keys().hasAny(['paymentStatus']) ||
+        isOptionalString(request.resource.data.paymentStatus, 32)) &&
+      (!request.resource.data.keys().hasAny(['adminNote']) ||
+        isOptionalString(request.resource.data.adminNote, 2000)) &&
+      (!request.resource.data.keys().hasAny(['refundAmount']) ||
+        isNonNegativeNumber(request.resource.data.refundAmount)) &&
+      (!request.resource.data.keys().hasAny(['refundReason']) ||
+        isOptionalString(request.resource.data.refundReason, 500)) &&
+      (!request.resource.data.keys().hasAny(['updatedAt']) ||
+        isDateLike(request.resource.data.updatedAt)) &&
+      (!request.resource.data.keys().hasAny(['deliveredAt']) ||
+        isDateLike(request.resource.data.deliveredAt)) &&
+      (!request.resource.data.keys().hasAny(['cancelledAt']) ||
+        isDateLike(request.resource.data.cancelledAt)) &&
+      (!request.resource.data.keys().hasAny(['refundedAt']) ||
+        isDateLike(request.resource.data.refundedAt));
+    }
+
+    // Messaging validation
+    function isValidConversationCreate() {
+      return request.resource.data.keys().hasAll([
+        'participants',
+        'participantNames',
+        'updatedAt',
+      ]) &&
+      request.resource.data.participants is list &&
+      request.resource.data.participants.size() >= 2 &&
+      request.resource.data.participants.size() <= 6 &&
+      request.auth.uid in request.resource.data.participants &&
+      request.resource.data.participantNames is map &&
+      (!request.resource.data.keys().hasAny(['unreadCount']) ||
+        (request.resource.data.unreadCount is int &&
+          request.resource.data.unreadCount >= 0)) &&
+      (!request.resource.data.keys().hasAny(['lastSenderId']) ||
+        isOptionalString(request.resource.data.lastSenderId, 128)) &&
+      (!request.resource.data.keys().hasAny(['updatedAt']) ||
+        isDateLike(request.resource.data.updatedAt));
+    }
+
+    function isValidConversationUpdate() {
+      return request.resource.data.participants == resource.data.participants &&
+        request.resource.data.participantNames == resource.data.participantNames &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'lastMessage',
+          'lastMessageTime',
+          'updatedAt',
+          'unreadCount',
+          'lastSenderId',
+        ]) &&
+        (!request.resource.data.keys().hasAny(['unreadCount']) ||
+          (request.resource.data.unreadCount is int &&
+            request.resource.data.unreadCount >= 0)) &&
+        (!request.resource.data.keys().hasAny(['lastSenderId']) ||
+          isOptionalString(request.resource.data.lastSenderId, 128)) &&
+        (!request.resource.data.keys().hasAny(['updatedAt']) ||
+          isDateLike(request.resource.data.updatedAt)) &&
+        (!request.resource.data.keys().hasAny(['lastMessageTime']) ||
+          isDateLike(request.resource.data.lastMessageTime));
+    }
+
+    function isValidMessageCreate() {
+      return request.resource.data.keys().hasAll([
+        'conversationId',
+        'senderId',
+        'text',
+        'createdAt',
+        'isImage',
+      ]) &&
+      request.resource.data.senderId == request.auth.uid &&
+      isNonEmptyString(request.resource.data.conversationId, 128) &&
+      request.resource.data.text is string &&
+      request.resource.data.text.size() > 0 &&
+      request.resource.data.text.size() <= 6000 &&
+      request.resource.data.isImage is bool &&
+      isDateLike(request.resource.data.createdAt);
+    }
+
+    function isValidTransactionCreate() {
+      return request.resource.data.keys().hasAll([
+        'orderId',
+        'userId',
+        'amount',
+        'method',
+        'status',
+      ]) &&
+      request.resource.data.userId == request.auth.uid &&
+      isNonEmptyString(request.resource.data.orderId, 128) &&
+      isNonNegativeNumber(request.resource.data.amount) &&
+      request.resource.data.amount > 0 &&
+      isNonEmptyString(request.resource.data.method, 32) &&
+      isNonEmptyString(request.resource.data.status, 32) &&
+      (!request.resource.data.keys().hasAny(['createdAt']) ||
+        isDateLike(request.resource.data.createdAt));
+    }
+
+    // Products
     match /products/{productId} {
       allow read: if true;
-      allow write: if isAdmin();
-      allow update: if isEmployee(); 
+      allow create, delete: if isAdmin() &&
+        isValidProductDocument(request.resource.data);
+      allow update: if (isAdmin() &&
+          isValidProductDocument(request.resource.data)) ||
+        (isEmployee() && isValidProductStockOnlyUpdate()) ||
+        (isAuthenticated() && isValidProductRatingOnlyUpdate());
     }
 
-    // Users: Users can read/write their own data, admins see all
+    // Users
     match /users/{userId} {
-      // Allow users to read their own document or any admin document
-      allow read: if request.auth.uid == userId || isAdmin() || resource.data.role == 'admin';
-      allow write: if request.auth.uid == userId || isAdmin();
+      allow read: if isSelf(userId) || isAdmin() || resource.data.role == 'admin';
+      allow create: if (isSelf(userId) && isValidSelfUserWrite(userId)) || isAdmin();
+      allow update: if isAdmin() || isSafeSelfUserUpdate(userId);
+      allow delete: if isAdmin() || isSelf(userId);
 
-      // Notifications: Users manage their own, anyone can create for them (for chat)
       match /notifications/{notificationId} {
-        allow read, update, delete: if request.auth.uid == userId || isAdmin();
-        allow create: if isAuthenticated();
+        allow read, update, delete: if isSelf(userId) || isAdmin();
+        allow create: if isAuthenticated() && isValidNotificationDocument();
       }
     }
 
-    // Orders: Users read/write their own, employees/admins see all
+    // Broadcast campaigns
+    match /notification_campaigns/{campaignId} {
+      allow read: if isEmployee();
+      allow create, update: if isEmployee() && isValidCampaignDocument();
+      allow delete: if isEmployee();
+    }
+
+    // Audit logs
+    match /audit_logs/{logId} {
+      allow read: if isEmployee();
+      allow create: if isAuthenticated() && isValidAuditDocument();
+      allow update, delete: if isAdmin();
+    }
+
+    // Orders
     match /orders/{orderId} {
-      allow read: if (request.auth.uid == resource.data.userId) || isEmployee();
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
-      allow update: if isEmployee() || (isOrderOwner() && orderPaymentUpdateAllowed());
+      allow read: if isSelf(resource.data.userId) || isEmployee();
+      allow create: if isAuthenticated() && isValidOrderCreate();
+      allow update: if (isEmployee() && staffOrderUpdateAllowed()) ||
+        (isSelf(resource.data.userId) && orderPaymentUpdateAllowed());
     }
 
-    // Chats: Participants only, admins/employees see all
+    // Legacy chat collection
     match /chats/{chatId} {
-      allow read, write: if isAuthenticated() && (request.auth.uid in resource.data.participants || isEmployee());
-      
+      allow read: if isAuthenticated() &&
+        ((request.auth.uid in resource.data.participants) || isEmployee());
+      allow create: if isAuthenticated() &&
+        request.auth.uid in request.resource.data.participants;
+      allow update, delete: if isAuthenticated() &&
+        ((request.auth.uid in resource.data.participants) || isEmployee());
+
       match /messages/{messageId} {
-        allow read, write: if isAuthenticated();
+        allow read: if isAuthenticated() &&
+          ((request.auth.uid in
+            get(/databases/$(database)/documents/chats/$(chatId)).data.participants) ||
+            isEmployee());
+        allow create: if isAuthenticated() &&
+          request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if isEmployee() ||
+          (isAuthenticated() && request.auth.uid == resource.data.senderId);
       }
     }
 
-    // Conversations: participants can read/write, admins can do all
+    // Conversations
     match /conversations/{conversationId} {
-      allow read: if isAuthenticated() && (request.auth.uid in resource.data.participants || isAdmin());
-      allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participants;
-      allow update: if isAuthenticated() && (request.auth.uid in resource.data.participants || isAdmin());
+      allow read: if isAuthenticated() &&
+        (request.auth.uid in resource.data.participants || isEmployee());
+      allow create: if isAuthenticated() && isValidConversationCreate();
+      allow update: if isAuthenticated() &&
+        (request.auth.uid in resource.data.participants || isEmployee()) &&
+        isValidConversationUpdate();
       allow delete: if isAdmin();
     }
 
-    // Messages: participants only, admins can read all
+    // Messages
     match /messages/{messageId} {
-      allow read: if isAuthenticated() && (isConversationParticipant(resource.data.conversationId) || isAdmin());
-      allow create: if isAuthenticated() && isConversationParticipant(request.resource.data.conversationId);
-      allow update, delete: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.senderId);
+      allow read: if isAuthenticated() &&
+        (isConversationParticipant(resource.data.conversationId) || isEmployee());
+      allow create: if isAuthenticated() &&
+        isValidMessageCreate() &&
+        (isConversationParticipant(request.resource.data.conversationId) || isEmployee());
+      allow update, delete: if isEmployee() ||
+        (isAuthenticated() && request.auth.uid == resource.data.senderId);
     }
 
-    // Reviews: Anyone can read, authenticated users can write their own
+    // Reviews
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        isNonEmptyString(request.resource.data.productId, 128) &&
+        request.resource.data.rating is number &&
+        request.resource.data.rating >= 1 &&
+        request.resource.data.rating <= 5;
+      allow update, delete: if isAuthenticated() &&
+        request.auth.uid == resource.data.userId;
     }
 
-    // Wishlists: Users can only access their own wishlist
+    // Wishlists
     match /wishlists/{userId} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      allow read, write: if isSelf(userId);
     }
 
-    // Carts: Users can only access their own cart
+    // Carts
     match /carts/{userId} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      allow read, write: if isSelf(userId);
     }
 
-    // Transactions: Users can create their own, employees/admins can read
+    // Transactions
     match /transactions/{transactionId} {
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
-      allow read: if isEmployee() || request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated() && isValidTransactionCreate();
+      allow read: if isEmployee() || isSelf(resource.data.userId);
+      allow update: if isEmployee();
+      allow delete: if isAdmin();
     }
   }
 }

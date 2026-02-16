@@ -3,8 +3,14 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const axios = require('axios');
 const admin = require('firebase-admin');
-const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+let nodemailer = null;
+
+try {
+    nodemailer = require('nodemailer');
+} catch (error) {
+    console.warn('Nodemailer is not installed. OTP email endpoints will be unavailable until dependencies are installed.');
+}
 
 // Initialize Firebase Admin SDK
 // Note: This requires GOOGLE_APPLICATION_CREDENTIALS env var or gcloud login
@@ -111,6 +117,9 @@ const logOtpEvent = async (eventName, email, meta = {}) => {
 };
 
 const ensureEmailConfig = () => {
+    if (!nodemailer) {
+        throw new Error('Nodemailer dependency is missing. Run npm install in /server.');
+    }
     if (!EMAIL_CONFIG.host || !EMAIL_CONFIG.user || !EMAIL_CONFIG.pass || !EMAIL_CONFIG.from) {
         throw new Error('Email service is not configured (SMTP_HOST, SMTP_USER, SMTP_PASS, MAIL_FROM).');
     }

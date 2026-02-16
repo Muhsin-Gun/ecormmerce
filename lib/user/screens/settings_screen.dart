@@ -74,43 +74,37 @@ class SettingsScreen extends StatelessWidget {
             },
           ),
           
-          const SizedBox(height: 32),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingL),
-            child: OutlinedButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Sign Out'),
-                    content: const Text('Are you sure you want to sign out?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel'),
+          const SizedBox(height: 20),
+          ListTile(
+            leading: const Icon(Icons.logout, color: AppColors.error),
+            title: const Text('Sign Out'),
+            subtitle: const Text('End this session on this device'),
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Sign Out'),
+                  content: const Text('Are you sure you want to sign out?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        authProvider.signOut();
+                        Navigator.pop(context); // Close settings
+                      },
+                      child: const Text(
+                        'Sign Out',
+                        style: TextStyle(color: AppColors.error),
                       ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          authProvider.signOut();
-                          Navigator.pop(context); // Close settings
-                        },
-                        child: const Text('Sign Out', style: TextStyle(color: AppColors.error)),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.error,
-                side: const BorderSide(color: AppColors.error),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                    ),
+                  ],
                 ),
-              ),
-              child: const Text('Sign Out'),
-            ),
+              );
+            },
           ),
           const SizedBox(height: 48),
         ],

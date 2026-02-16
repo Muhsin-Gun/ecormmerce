@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth;
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
@@ -10,6 +12,7 @@ import 'firebase_options.dart';
 
 // Core & Services
 import 'core/theme/app_theme.dart';
+import 'core/theme/app_scroll_behavior.dart';
 import 'core/services/notification_service.dart';
 import 'core/utils/app_error_reporter.dart';
 
@@ -29,6 +32,7 @@ import 'screens/splash_screen.dart';
 void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    GestureBinding.instance.resamplingEnabled = true;
 
     // Initialize Firebase
     await Firebase.initializeApp(
@@ -133,6 +137,7 @@ class ProMarketApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             scaffoldMessengerKey: ProMarketApp.scaffoldMessengerKey,
             navigatorKey: ProMarketApp.navigatorKey,
+            scrollBehavior: const AppScrollBehavior(),
             
             // Theme
             theme: AppTheme.lightTheme,
@@ -157,6 +162,12 @@ class EntryRouter extends StatefulWidget {
 
 class _EntryRouterState extends State<EntryRouter> {
   bool _splashDone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _splashDone = FirebaseAuth.instance.currentUser != null;
+  }
 
   void _onSplashFinished() {
     if (mounted) setState(() => _splashDone = true);

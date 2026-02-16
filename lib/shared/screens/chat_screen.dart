@@ -73,6 +73,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _pickAndSendImage(ImageSource source) async {
     final user = context.read<AuthProvider>().firebaseUser;
+    final messageProvider = context.read<MessageProvider>();
     if (user == null) return;
 
     try {
@@ -83,7 +84,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final imageUrl = await CloudinaryService.uploadImage(file);
       if (imageUrl == null) throw Exception('Image upload failed');
 
-      await context.read<MessageProvider>().sendMessage(
+      await messageProvider.sendMessage(
             conversationId: widget.chatId,
             senderId: user.uid,
             text: imageUrl,
@@ -182,11 +183,19 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.chat_bubble_outline, size: 64, color: AppColors.gray300)
-                            .animate(onPlay: (c) => c.repeat(reverse: true))
-                            .scale(begin: const Offset(1, 1), end: const Offset(1.08, 1.08), duration: 2000.ms),
+                        const Icon(
+                          Icons.chat_bubble_outline,
+                          size: 64,
+                          color: AppColors.gray300,
+                        ),
                         const SizedBox(height: 16),
-                        const Text('Say Hi! 👋', style: TextStyle(color: AppColors.gray500, fontSize: 18)),
+                        const Text(
+                          'Say Hi!',
+                          style: TextStyle(
+                            color: AppColors.gray500,
+                            fontSize: 18,
+                          ),
+                        ),
                       ],
                     ),
                   );
@@ -223,7 +232,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppColors.electricPurple.withOpacity(0.08),
+                      color: AppColors.electricPurple.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(_quickEmojis[index], style: const TextStyle(fontSize: 20)),
@@ -236,12 +245,12 @@ class _ChatScreenState extends State<ChatScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkCard : Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -4),
-                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -4),
+                  ),
               ],
             ),
             child: SafeArea(
@@ -268,7 +277,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                       Container(
                         decoration: BoxDecoration(
-                          color: AppColors.electricPurple.withOpacity(0.1),
+                          color: AppColors.electricPurple.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
@@ -401,11 +410,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildMessageContent(String text, bool isEmoji, bool isMe, bool isDark) {
     if (isEmoji) {
-      return Text(text, style: const TextStyle(fontSize: 46))
-          .animate(onPlay: (c) => c.repeat(reverse: true))
-          .scale(begin: const Offset(1, 1), end: const Offset(1.12, 1.12), duration: 1200.ms, curve: Curves.easeInOut)
-          .moveY(begin: 0, end: -8, duration: 1200.ms, curve: Curves.easeInOut)
-          .shake(hz: 0.5, duration: 2400.ms);
+      return Text(text, style: const TextStyle(fontSize: 42));
     }
 
     return Text(
@@ -425,3 +430,4 @@ class _ChatScreenState extends State<ChatScreen> {
     return regex.hasMatch(text);
   }
 }
+

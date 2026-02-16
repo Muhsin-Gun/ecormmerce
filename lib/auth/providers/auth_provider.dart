@@ -8,12 +8,16 @@ import '../services/auth_service.dart';
 import '../services/email_verification_service.dart';
 import '../models/user_model.dart';
 import '../../core/constants/constants.dart';
+import '../../core/constants/google_sign_in_ids.dart';
 import '../../core/utils/app_feedback.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
   final EmailVerificationService _emailVerificationService =
       EmailVerificationService();
+  StreamSubscription<User?>? _authStateSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _userDocSubscription;
 
   UserModel? _userModel;
   bool _isLoading = false;
@@ -23,6 +27,7 @@ class AuthProvider extends ChangeNotifier {
   int _otpCooldownSeconds = 30;
   int _otpRemainingResends = 3;
   bool _otpResendCapReached = false;
+  bool _isInitialized = false;
 
   UserModel? get userModel => _userModel;
   User? get firebaseUser => FirebaseAuth.instance.currentUser;
@@ -34,6 +39,7 @@ class AuthProvider extends ChangeNotifier {
   int get otpRemainingResends => _otpRemainingResends;
   bool get otpResendCapReached => _otpResendCapReached;
   bool get isAuthenticated => FirebaseAuth.instance.currentUser != null;
+  bool get isInitialized => _isInitialized;
 
   // Compatibility getters for existing code
   bool get isAdmin => _userModel?.role == AppConstants.roleAdmin;
@@ -46,15 +52,17 @@ class AuthProvider extends ChangeNotifier {
 
   /// Initialize and load user data
   Future<void> init() async {
+    if (_isInitialized) return;
+
     _setLoading(true);
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        _userModel = await _authService.login(user.email!, 'DUMMY_NOT_USED');
-      } catch (e) {
-        debugPrint('Auth init user load: $e');
-      }
-    }
+    _authStateSubscription = FirebaseAuth.instance
+        .authStateChanges()
+        .listen(_handleAuthStateChanged, onError: (error) {
+      debugPrint('Auth state stream error: $error');
+    });
+
+    await _handleAuthStateChanged(FirebaseAuth.instance.currentUser);
+    _isInitialized = true;
     _setLoading(false);
   }
 
@@ -92,13 +100,14 @@ class AuthProvider extends ChangeNotifier {
 
   /// 🔐 GOOGLE SIGN-IN
   Future<bool> signInWithGoogle({bool forceAccountChooser = false}) async {
+    if (_isLoading) return false;
+
     _clearError();
     _setLoading(true);
     try {
       late final UserCredential userCredential;
 
       if (kIsWeb) {
-        // Web: use Firebase popup flow to avoid direct People API calls.
         final googleProvider = GoogleAuthProvider()
           ..addScope('email')
           ..addScope('profile');
@@ -107,10 +116,15 @@ class AuthProvider extends ChangeNotifier {
         }
         userCredential = await FirebaseAuth.instance
             .signInWithPopup(googleProvider)
-            .timeout(const Duration(seconds: 25));
+            .timeout(const Duration(seconds: 15));
       } else {
-        // Mobile/desktop: use google_sign_in and exchange tokens with Firebase.
-        final googleSignIn = GoogleSignIn();
+        final useAppleClientId =
+            defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS;
+        final googleSignIn = GoogleSignIn(
+          clientId: useAppleClientId ? GoogleSignInIds.iosClientId : null,
+          serverClientId: GoogleSignInIds.androidClientId,
+        );
         if (forceAccountChooser) {
           try {
             await googleSignIn.disconnect();
@@ -119,7 +133,7 @@ class AuthProvider extends ChangeNotifier {
           }
         }
         final GoogleSignInAccount? googleUser =
-            await googleSignIn.signIn().timeout(const Duration(seconds: 25));
+            await googleSignIn.signIn().timeout(const Duration(seconds: 15));
         if (googleUser == null) {
           _setError('Google sign-in was canceled.');
           return false;
@@ -127,13 +141,19 @@ class AuthProvider extends ChangeNotifier {
 
         final GoogleSignInAuthentication googleAuth =
             await googleUser.authentication;
+        if ((googleAuth.idToken ?? '').isEmpty &&
+            (googleAuth.accessToken ?? '').isEmpty) {
+          _setError('Google sign-in was canceled.');
+          return false;
+        }
+
         final credential = GoogleAuthProvider.credential(
           accessToken: googleAuth.accessToken,
           idToken: googleAuth.idToken,
         );
         userCredential = await FirebaseAuth.instance
             .signInWithCredential(credential)
-            .timeout(const Duration(seconds: 25));
+            .timeout(const Duration(seconds: 15));
       }
 
       final user = userCredential.user;
@@ -141,14 +161,12 @@ class AuthProvider extends ChangeNotifier {
         throw Exception('Google Sign-In returned no Firebase user.');
       }
 
-      // Check if user profile exists in Firestore
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get();
 
       if (!userDoc.exists) {
-        // Create new user profile
         final newUser = UserModel(
           userId: user.uid,
           email: user.email!,
@@ -169,7 +187,6 @@ class AuthProvider extends ChangeNotifier {
         _userModel = newUser;
         notifyListeners();
       } else {
-        // Load existing user profile
         _userModel = UserModel.fromFirestore(userDoc);
         if (_userModel != null &&
             !_userModel!.emailVerified &&
@@ -191,16 +208,35 @@ class AuthProvider extends ChangeNotifier {
         }
         notifyListeners();
       }
-      _setLoading(false);
+
       return true;
     } on TimeoutException {
       _setError('Google Sign-In timed out. Please try again.');
-      _setLoading(false);
+      return false;
+    } on FirebaseAuthException catch (e) {
+      final code = e.code.toLowerCase();
+      if (code == 'popup-closed-by-user' ||
+          code == 'cancelled-popup-request' ||
+          code == 'web-context-cancelled') {
+        _setError('Google sign-in was canceled.');
+      } else {
+        _setError('Google Sign-In failed: ${e.message ?? e.code}');
+      }
       return false;
     } catch (e) {
+      final lower = e.toString().toLowerCase();
+      if (lower.contains('sign_in_canceled') ||
+          lower.contains('sign-in canceled') ||
+          lower.contains('sign in canceled') ||
+          lower.contains('cancelled') ||
+          lower.contains('canceled')) {
+        _setError('Google sign-in was canceled.');
+        return false;
+      }
       _setError('Google Sign-In failed: ${e.toString()}');
-      _setLoading(false);
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
@@ -332,6 +368,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> reloadUser() async {
     try {
       await _authService.reloadUser();
+      await _refreshCurrentUserDoc();
       notifyListeners();
     } catch (e) {
       debugPrint('Reload user error: $e');
@@ -341,6 +378,8 @@ class AuthProvider extends ChangeNotifier {
   /// 🚪 LOGOUT
   Future<void> signOut() async {
     await _authService.logout();
+    await _userDocSubscription?.cancel();
+    _userDocSubscription = null;
     _userModel = null;
     _pendingVerificationEmail = null;
     _pendingVerificationName = null;
@@ -352,15 +391,17 @@ class AuthProvider extends ChangeNotifier {
 
   /// 🔄 UPDATE PROFILE
   Future<void> updateProfile(UserModel updatedUser) async {
-    _setLoading(true);
+    final previous = _userModel;
+    final optimistic = updatedUser.copyWith(updatedAt: DateTime.now());
+    _userModel = optimistic;
+    notifyListeners();
+
     try {
-      await _authService.updateProfile(updatedUser);
-      _userModel = updatedUser;
-      notifyListeners();
+      await _authService.updateProfile(optimistic);
     } catch (e) {
+      _userModel = previous;
       _setError(e.toString());
-    } finally {
-      _setLoading(false);
+      notifyListeners();
     }
   }
 
@@ -413,5 +454,73 @@ class AuthProvider extends ChangeNotifier {
     _otpRemainingResends = (response['remainingResends'] as num?)?.toInt() ?? 0;
     _otpResendCapReached = response['resendCapReached'] == true;
     notifyListeners();
+  }
+
+  Future<void> _handleAuthStateChanged(User? user) async {
+    await _userDocSubscription?.cancel();
+    _userDocSubscription = null;
+
+    if (user == null) {
+      _userModel = null;
+      _pendingVerificationEmail = null;
+      _pendingVerificationName = null;
+      notifyListeners();
+      return;
+    }
+
+    await _refreshCurrentUserDoc();
+    notifyListeners();
+
+    _userDocSubscription = FirebaseFirestore.instance
+        .collection(AppConstants.usersCollection)
+        .doc(user.uid)
+        .snapshots()
+        .listen((doc) {
+      if (!doc.exists) {
+        _userModel = null;
+      } else {
+        final loaded = UserModel.fromFirestore(doc);
+        final firebaseVerified =
+            FirebaseAuth.instance.currentUser?.emailVerified ?? false;
+        _userModel = loaded.copyWith(
+          emailVerified: loaded.emailVerified || firebaseVerified,
+        );
+      }
+      notifyListeners();
+    }, onError: (error) {
+      debugPrint('User profile stream error: $error');
+    });
+  }
+
+  Future<void> _refreshCurrentUserDoc() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      _userModel = null;
+      return;
+    }
+
+    final userDoc = await FirebaseFirestore.instance
+        .collection(AppConstants.usersCollection)
+        .doc(uid)
+        .get();
+
+    if (!userDoc.exists) {
+      _userModel = null;
+      return;
+    }
+
+    final loaded = UserModel.fromFirestore(userDoc);
+    final firebaseVerified =
+        FirebaseAuth.instance.currentUser?.emailVerified ?? false;
+    _userModel = loaded.copyWith(
+      emailVerified: loaded.emailVerified || firebaseVerified,
+    );
+  }
+
+  @override
+  void dispose() {
+    _authStateSubscription?.cancel();
+    _userDocSubscription?.cancel();
+    super.dispose();
   }
 }

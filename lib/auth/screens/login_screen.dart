@@ -139,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           .signInWithGoogle(
             forceAccountChooser: useAnotherAccount,
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 20));
       if (!mounted) return;
 
       if (success) {
@@ -147,22 +147,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       } else {
         final msg = auth.errorMessage ??
             'Could not complete Google sign-in. Retry or use another account.';
+        final isCanceled = msg.toLowerCase().contains('canceled') ||
+            msg.toLowerCase().contains('cancelled');
         setState(() {
           _oauthInlineError = msg;
         });
-        AppFeedback.error(context, msg);
+        if (isCanceled) {
+          AppFeedback.info(context, 'Google sign-in was canceled.');
+        } else {
+          AppFeedback.error(context, msg);
+        }
       }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isGoogleLoading = false;
-        _oauthInlineError = AppFeedback.friendlyError(e);
-      });
-      AppFeedback.error(
-        context,
-        _oauthInlineError!,
-        nextStep: 'Retry or choose another account.',
-      );
     } on TimeoutException {
       if (!mounted) return;
       setState(() {
@@ -170,6 +165,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             'Google sign-in is taking too long. Please check your connection and try again.';
       });
       AppFeedback.error(context, _oauthInlineError!);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _oauthInlineError = AppFeedback.friendlyError(e);
+      });
+      AppFeedback.error(
+        context,
+        _oauthInlineError!,
+        nextStep: 'Retry or choose another account.',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -428,14 +433,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                             ],
                                           ),
                                         ),
-                                      TextButton(
-                                        onPressed: _isGoogleLoading
-                                            ? null
-                                            : () => _signInWithGoogle(
-                                                  useAnotherAccount: true,
-                                                ),
-                                        child: const Text('Sign in with another account'),
-                                      ),
+                                      if (_oauthInlineError == null)
+                                        TextButton(
+                                          onPressed: _isGoogleLoading
+                                              ? null
+                                              : () => _signInWithGoogle(
+                                                    useAnotherAccount: true,
+                                                  ),
+                                          child: const Text('Sign in with another account'),
+                                        ),
                                     ],
                                   );
                                 },

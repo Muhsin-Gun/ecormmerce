@@ -5,7 +5,6 @@ import '../../auth/providers/auth_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/app_feedback.dart';
-import '../../shared/services/firebase_service.dart';
 import '../../shared/services/cloudinary_service.dart';
 import '../../shared/widgets/auth_button.dart';
 import '../../shared/widgets/auth_text_field.dart';
@@ -25,6 +24,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _phoneController;
   bool _isLoading = false;
   String? _profileImageUrl;
+  int _profileImageVersion = 0;
 
   @override
   void initState() {
@@ -33,6 +33,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController = TextEditingController(text: user?.name);
     _phoneController = TextEditingController(text: user?.phoneNumber);
     _profileImageUrl = user?.profileImageUrl;
+    _profileImageVersion = user?.updatedAt.millisecondsSinceEpoch ?? 0;
   }
 
   @override
@@ -51,7 +52,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final url = await CloudinaryService.uploadImage(file);
       if (url == null) throw Exception('Could not upload image to Cloudinary');
 
-      setState(() => _profileImageUrl = url);
+      setState(() {
+        _profileImageUrl = url;
+        _profileImageVersion = DateTime.now().millisecondsSinceEpoch;
+      });
     } catch (e) {
       if (mounted) {
         AppFeedback.error(
@@ -72,11 +76,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await FirebaseService.instance.updateCurrentUserDocument({
-        'name': _nameController.text.trim(),
-        'phone': _phoneController.text.trim(),
-        'profileImageUrl': _profileImageUrl,
-      });
+      final auth = context.read<AuthProvider>();
+      final currentUser = auth.userModel;
+      if (currentUser == null) {
+        throw Exception('Could not load your profile. Please try again.');
+      }
+
+      final updatedUser = currentUser.copyWith(
+        name: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        profileImageUrl: _profileImageUrl,
+        updatedAt: DateTime.now(),
+      );
+      await auth.updateProfile(updatedUser);
 
       if (mounted) {
         Navigator.pop(context);
@@ -145,6 +157,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           backgroundColor: AppColors.gray200,
                           child: _profileImageUrl != null
                               ? CachedNetworkImage(
+                                  key: ValueKey(
+                                    '${_profileImageUrl}_$_profileImageVersion',
+                                  ),
+                                  cacheKey:
+                                      '${_profileImageUrl}_$_profileImageVersion',
                                   imageUrl: _profileImageUrl!,
                                   width: 96,
                                   height: 96,

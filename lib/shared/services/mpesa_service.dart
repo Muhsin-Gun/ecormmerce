@@ -1,9 +1,7 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import '../../core/constants/secrets.dart';
 
 class MpesaService {
@@ -58,11 +56,24 @@ class MpesaService {
     required String transactionDesc,
   }) async {
     if (kIsWeb) {
-      return _initiateStkPushViaFunctions(
+      return _initiateStkPushViaLocalServer(
         phoneNumber: phoneNumber,
         amount: amount,
         accountReference: accountReference,
         transactionDesc: transactionDesc,
+      );
+    }
+
+    if (kDebugMode) {
+      final local = await _initiateStkPushViaLocalServer(
+        phoneNumber: phoneNumber,
+        amount: amount,
+        accountReference: accountReference,
+        transactionDesc: transactionDesc,
+      );
+      if (local['success'] == true) return local;
+      debugPrint(
+        'Local STK server unavailable, falling back to direct API: ${local['error']}',
       );
     }
 
@@ -163,18 +174,23 @@ class MpesaService {
     }
   }
 
-  Future<Map<String, dynamic>> _initiateStkPushViaFunctions({
+  String _localServerUrl() {
+    if (kIsWeb) return 'http://localhost:3000/mpesaStkPush';
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:3000/mpesaStkPush';
+    }
+    return 'http://localhost:3000/mpesaStkPush';
+  }
+
+  Future<Map<String, dynamic>> _initiateStkPushViaLocalServer({
     required String phoneNumber,
     required double amount,
     required String accountReference,
     required String transactionDesc,
   }) async {
     try {
-      // Direct call to local Node.js server
-      const String localServerUrl = 'http://localhost:3000/mpesaStkPush';
-      
       final response = await http.post(
-        Uri.parse(localServerUrl),
+        Uri.parse(_localServerUrl()),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'phoneNumber': phoneNumber,
@@ -193,9 +209,11 @@ class MpesaService {
           'responseDescription': data['ResponseDescription'],
         };
       } else {
+        final responseBody = json.decode(response.body);
         return {
           'success': false,
-          'error': 'Local Server Error: ${response.statusCode}',
+          'error': responseBody['error'] ??
+              'Local Server Error: ${response.statusCode}',
         };
       }
     } catch (e) {

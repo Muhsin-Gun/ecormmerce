@@ -4,6 +4,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
 import '../../shared/models/product_model.dart';
 import '../../shared/screens/conversation_list_screen.dart';
 import '../../shared/providers/cart_provider.dart';
@@ -91,8 +92,9 @@ class _HomeTabState extends State<HomeTab> {
             Selector<ProductProvider, bool>(
               selector: (_, p) => p.isLoading && p.products.isEmpty,
               builder: (context, isLoading, _) {
-                if (!isLoading)
+                if (!isLoading) {
                   return const SliverToBoxAdapter(child: SizedBox.shrink());
+                }
                 return SliverPadding(
                   padding: const EdgeInsets.all(AppTheme.spacingL),
                   sliver: SliverList(
@@ -127,21 +129,23 @@ class _HomeTabState extends State<HomeTab> {
             Selector<ProductProvider, List<ProductModel>>(
               selector: (_, p) => p.featuredProducts,
               builder: (context, featuredProducts, _) {
-                if (featuredProducts.isEmpty)
+                if (featuredProducts.isEmpty) {
                   return const SliverToBoxAdapter(child: SizedBox.shrink());
+                }
                 return SliverToBoxAdapter(
                   child: Column(
                     children: [
                       const SizedBox(height: AppTheme.spacingM),
                       CarouselSlider(
                         options: CarouselOptions(
-                          height: screenWidth >= 900 ? 220 : 180,
-                          viewportFraction: 0.9,
+                          height: screenWidth >= 900 ? 230 : 196,
+                          viewportFraction: screenWidth >= 900 ? 0.42 : 0.86,
                           enlargeCenterPage: true,
-                          autoPlay: false,
+                          enlargeFactor: 0.13,
+                          autoPlay: true,
                           autoPlayInterval: const Duration(seconds: 4),
                           autoPlayAnimationDuration:
-                              const Duration(milliseconds: 800),
+                              const Duration(milliseconds: 550),
                           onPageChanged: (index, _) =>
                               _currentCarouselIndex.value = index,
                         ),
@@ -184,16 +188,17 @@ class _HomeTabState extends State<HomeTab> {
             Selector<ProductProvider, List<ProductModel>>(
               selector: (_, p) => p.recentlyViewedProducts,
               builder: (context, recentlyViewed, _) {
-                if (recentlyViewed.isEmpty)
+                if (recentlyViewed.isEmpty) {
                   return const SliverToBoxAdapter(child: SizedBox.shrink());
-                final compactCardWidth = screenWidth >= 900 ? 180.0 : 150.0;
+                }
+                final compactCardWidth = screenWidth >= 900 ? 176.0 : 148.0;
                 return SliverToBoxAdapter(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SectionHeader(title: 'Recently Viewed'),
                       SizedBox(
-                        height: screenWidth >= 900 ? 270 : 240,
+                        height: screenWidth >= 900 ? 276 : 254,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(
@@ -209,7 +214,7 @@ class _HomeTabState extends State<HomeTab> {
                                 child: ProductCard(
                                   product: product,
                                   heroTagSuffix: '_recent_$index',
-                                  isCompact: false,
+                                  isCompact: true,
                                   onTap: () => _openPage(
                                       ProductDetailsScreen(product: product)),
                                 ),
@@ -329,72 +334,135 @@ class _HomeTabState extends State<HomeTab> {
 
   Widget _buildFeaturedCard(BuildContext context, ProductModel product) {
     final hasImage = product.mainImage.isNotEmpty;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (hasImage)
-            OptimizedNetworkImage(
-              imageUrl: product.mainImage,
-              fit: BoxFit.cover,
-              memCacheWidth:
-                  (720 * MediaQuery.of(context).devicePixelRatio).round(),
-              errorWidget: Container(
-                color: Colors.grey.shade300,
-                child: const Center(child: Icon(Icons.broken_image_outlined)),
-              ),
-            )
-          else
-            Container(
-              color: Colors.grey.shade300,
-              child: const Center(child: Icon(Icons.broken_image_outlined)),
-            ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.black.withOpacity(0.7), Colors.transparent],
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-              ),
-            ),
-            padding: const EdgeInsets.all(AppTheme.spacingM),
-            alignment: Alignment.bottomLeft,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        onTap: () => _openPage(ProductDetailsScreen(product: product)),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (hasImage)
+                OptimizedNetworkImage(
+                  imageUrl: product.mainImage,
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.medium,
+                  memCacheWidth:
+                      (1200 * MediaQuery.of(context).devicePixelRatio).round(),
+                  errorWidget: Container(
+                    color: Colors.grey.shade300,
+                    child: const Center(child: Icon(Icons.broken_image_outlined)),
+                  ),
+                )
+              else
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.electricPurple,
-                    borderRadius: BorderRadius.circular(4),
+                  color: Colors.grey.shade300,
+                  child: const Center(child: Icon(Icons.broken_image_outlined)),
+                ),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withValues(alpha: 0.75),
+                      Colors.black.withValues(alpha: 0.15),
+                    ],
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
                   ),
-                  child: const Text(
-                    'FEATURED',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                ),
+                padding: const EdgeInsets.all(AppTheme.spacingM),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.electricPurple,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: const Text(
+                            'FEATURED',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.48),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            product.category,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                    const Spacer(),
+                    Text(
+                      product.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      product.brand ?? product.category,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          Formatters.formatCurrency(product.price),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const Spacer(),
+                        const Icon(
+                          Icons.arrow_forward_rounded,
+                          color: Colors.white,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  product.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

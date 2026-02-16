@@ -35,7 +35,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (user != null) {
       // Pre-fill if available (assuming user model has these fields in future)
       // _addressController.text = user.address ?? ''; 
-      if (user.phoneNumber != null) _phoneController.text = user.phoneNumber!;
+      _phoneController.text = user.phoneNumber;
     }
   }
 
@@ -55,11 +55,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final user = context.read<AuthProvider>().userModel;
     if (user == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please login before placing an order.'),
-            backgroundColor: AppColors.error,
-          ),
+        AppFeedback.error(
+          context,
+          'Please login before placing an order.',
+          nextStep: 'Sign in, then try checkout again.',
         );
       }
       setState(() => _isLoading = false);
@@ -318,7 +317,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected 
-             ? AppColors.electricPurple.withOpacity(0.1) 
+             ? AppColors.electricPurple.withValues(alpha: 0.1) 
              : (isDark ? AppColors.darkCard : Colors.white),
           border: Border.all(
              color: isSelected ? AppColors.electricPurple : AppColors.gray300,

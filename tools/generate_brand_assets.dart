@@ -82,9 +82,9 @@ void savePng(File path, int width, int height,
 
 List<int> bgGradient(int x, int y, int w, int h) {
   final t = y / (h - 1);
-  final r = (11 + 70 * t).toInt();
-  final g = (18 + 35 * t).toInt();
-  final b = (32 + 115 * t).toInt();
+  final r = (8 + 18 * t).toInt();
+  final g = (32 + 56 * t).toInt();
+  final b = (46 + 50 * t).toInt();
   return [r, g, b, 255];
 }
 
@@ -94,22 +94,37 @@ List<int> fgIcon(int x, int y, int w, int h) {
   final dx = x - cx;
   final dy = y - cy;
 
-  final bodyW = 520, bodyH = 470;
-  final rx = bodyW / 2;
-  final ry = bodyH / 2;
-  final bx = (dx.abs()) / rx;
-  final by = (dy.abs() - 40).abs() / ry;
-  final inBody = (math.pow(bx, 4) + math.pow(by, 4)) <= 1.0;
+  final r = math.sqrt((dx * dx + dy * dy).toDouble());
+  final inOuterBadge = r <= 320;
+  final inInnerBadge = r <= 265;
 
-  final rDist = math.sqrt(dx * dx + (dy + 125) * (dy + 125));
-  final inHandle = (rDist > 165 && rDist < 205 && dy < -35);
+  final stem = dx >= -120 && dx <= -45 && dy >= -190 && dy <= 190;
+  final bowlOuter =
+      math.sqrt(math.pow(dx + 10, 2) + math.pow(dy + 70, 2)) <= 130 &&
+          dx >= -45 &&
+          dy <= 55;
+  final bowlInner =
+      math.sqrt(math.pow(dx + 10, 2) + math.pow(dy + 70, 2)) <= 78 &&
+          dx >= 18 &&
+          dy <= 55;
+  final letterP = stem || (bowlOuter && !bowlInner);
 
-  if (inBody) {
-    return [138, 88, 255, 255];
+  final accent =
+      math.sqrt(math.pow(dx - 160, 2) + math.pow(dy + 155, 2)) <= 34;
+
+  if (letterP) {
+    return [15, 118, 110, 255];
   }
-  if (inHandle) {
-    return [220, 200, 255, 255];
+  if (accent) {
+    return [245, 158, 11, 255];
   }
+  if (inInnerBadge) {
+    return [255, 255, 255, 255];
+  }
+  if (inOuterBadge) {
+    return [15, 118, 110, 255];
+  }
+
   return [0, 0, 0, 0];
 }
 

@@ -31,7 +31,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 children: [
                   const Icon(Icons.error_outline, size: 48, color: AppColors.error),
                   const SizedBox(height: 16),
-                  Text('Error loading users: ${snapshot.error}'),
+                  Text(
+                    AppFeedback.friendlyError(
+                      snapshot.error ?? 'Could not load users.',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Please retry.',
+                    style: TextStyle(color: AppColors.gray500),
+                  ),
                   TextButton(
                     onPressed: () => setState(() {}),
                     child: const Text('Retry'),
@@ -121,9 +131,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.5), width: 1),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
       ),
       child: Text(
         text,

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_feedback.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/invoice_generator.dart';
 import '../../shared/services/firebase_service.dart';
@@ -36,8 +36,12 @@ class OrderHistoryScreen extends StatelessWidget {
                  children: [
                    const Icon(Icons.error_outline, size: 48, color: AppColors.error),
                    const SizedBox(height: 16),
-                   const Text('Failed to load orders'),
-                   Text(snapshot.error.toString(), style: const TextStyle(fontSize: 10, color: AppColors.error), textAlign: TextAlign.center),
+                   Text(
+                     AppFeedback.friendlyError(
+                       snapshot.error ?? 'Failed to load orders.',
+                     ),
+                     textAlign: TextAlign.center,
+                   ),
                    TextButton(onPressed: () => (context as Element).markNeedsBuild(), child: const Text('Try Again')),
                  ],
                ),
@@ -88,7 +92,7 @@ class OrderHistoryScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(order.status).withOpacity(0.1),
+                          color: _getStatusColor(order.status).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -115,18 +119,17 @@ class OrderHistoryScreen extends StatelessWidget {
                                 ],
                               ),
                             );
-                          }).toList(),
+                          }),
                           const Divider(),
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton.icon(
                               onPressed: () async {
                                 final pdfFile = await InvoiceGenerator.generateInvoice({...order.toMap(), 'id': order.orderId});
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Invoice saved to ${pdfFile.path}'),
-                                    backgroundColor: AppColors.primaryIndigo,
-                                  ),
+                                if (!context.mounted) return;
+                                AppFeedback.success(
+                                  context,
+                                  'Invoice saved to ${pdfFile.path}',
                                 );
                               },
                               icon: const Icon(Icons.download_for_offline),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_feedback.dart';
 import '../../core/utils/formatters.dart';
 import '../../shared/models/cart_item_model.dart';
 import '../../shared/providers/cart_provider.dart';
@@ -161,8 +162,9 @@ class _CartSummary extends StatelessWidget {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Try WELCOME for 10% off')),
+                    onPressed: () => AppFeedback.info(
+                      context,
+                      'Try WELCOME for 10% off.',
                     ),
                     child: const Text('Apply'),
                   ),

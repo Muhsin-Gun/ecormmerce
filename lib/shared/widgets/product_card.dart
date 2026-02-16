@@ -28,7 +28,7 @@ class ProductCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     // Balanced decode size for faster scrolling on mobile/web grids.
-    const imageCacheSize = 420;
+    const imageCacheSize = 360;
     const borderRadius =
         BorderRadius.vertical(top: Radius.circular(AppTheme.radiusMedium));
 
@@ -37,6 +37,7 @@ class ProductCard extends StatelessWidget {
         onTap: onTap,
         child: Container(
           width: double.infinity,
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkCard : AppColors.lightCard,
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -52,7 +53,7 @@ class ProductCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AspectRatio(
-                aspectRatio: isCompact ? 1.0 : 1.08,
+                aspectRatio: isCompact ? 0.98 : 1.03,
                 child: Stack(
                   children: [
                     ClipRRect(
@@ -166,83 +167,96 @@ class ProductCard extends StatelessWidget {
               ),
 
               // Details Section
-              SizedBox(
-                height: isCompact ? 96 : 118,
+              Expanded(
                 child: Padding(
-                padding: const EdgeInsets.all(AppTheme.spacingS),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      product.brand ?? '',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.gray500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      product.name,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              Formatters.formatCurrency(product.price),
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: AppColors.primaryIndigo,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (product.isOnSale &&
-                                product.compareAtPrice != null)
-                              Text(
-                                Formatters.formatCurrency(
-                                    product.compareAtPrice!),
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: AppColors.gray500,
-                                  decoration: TextDecoration.lineThrough,
-                                ),
-                              ),
-                          ],
+                  padding: const EdgeInsets.all(AppTheme.spacingS),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if ((product.brand ?? '').trim().isNotEmpty)
+                        Text(
+                          product.brand!,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: AppColors.gray500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        if (onAddToCart != null)
-                          Container(
-                            decoration: const BoxDecoration(
-                              color: AppColors.electricPurple,
-                              shape: BoxShape.circle,
-                            ),
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.add_shopping_cart,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              onPressed: onAddToCart,
-                              constraints: const BoxConstraints(
-                                minWidth: 36,
-                                minHeight: 36,
-                              ),
-                              padding: EdgeInsets.zero,
+                      if ((product.brand ?? '').trim().isNotEmpty)
+                        const SizedBox(height: 2),
+                      Text(
+                        product.name,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: isCompact ? 12.5 : 13.2,
+                          height: 1.2,
+                        ),
+                        maxLines: isCompact ? 2 : 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const Spacer(),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  Formatters.formatCurrency(product.price),
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color: AppColors.primaryIndigo,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: isCompact ? 15 : null,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (product.isOnSale &&
+                                    product.compareAtPrice != null)
+                                  Text(
+                                    Formatters.formatCurrency(
+                                      product.compareAtPrice!,
+                                    ),
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: AppColors.gray500,
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
                             ),
                           ),
-                      ],
-                    ),
-                  ],
+                          if (onAddToCart != null) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              decoration: const BoxDecoration(
+                                color: AppColors.electricPurple,
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.add_shopping_cart,
+                                  color: Colors.white,
+                                  size: 17,
+                                ),
+                                onPressed: onAddToCart,
+                                constraints: const BoxConstraints(
+                                  minWidth: 34,
+                                  minHeight: 34,
+                                ),
+                                padding: EdgeInsets.zero,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               ),
             ],
           ),

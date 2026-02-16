@@ -5,6 +5,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_feedback.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/support_utils.dart';
 import '../../shared/models/product_model.dart';
@@ -14,7 +15,6 @@ import '../../shared/widgets/review_card.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../shared/providers/product_provider.dart';
 import '../../shared/providers/wishlist_provider.dart';
-import '../../shared/widgets/auth_button.dart';
 import '../../shared/widgets/optimized_network_image.dart';
 import '../../shared/widgets/product_card.dart';
 import '../../shared/widgets/app_snackbar.dart';
@@ -184,8 +184,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             margin: const EdgeInsets.symmetric(horizontal: 4.0),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Colors.white.withOpacity(
-                                _currentImageIndex == entry.key ? 1.0 : 0.4
+                              color: Colors.white.withValues(
+                                alpha: _currentImageIndex == entry.key ? 1.0 : 0.4,
                               ),
                             ),
                           );
@@ -224,7 +224,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppColors.warning.withOpacity(0.1),
+                            color: AppColors.warning.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Row(
@@ -314,21 +314,66 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     ),
                     const SizedBox(height: AppTheme.spacingL),
 
-                    // Chat/Seller Button
-                    Consumer<AuthProvider>(
-                      builder: (context, auth, _) {
-                        return OutlinedButton.icon(
-                          onPressed: () => SupportUtils.startSupportChat(context),
-                          icon: const Icon(Icons.chat_bubble_outline),
-                          label: const Text('Chat with Support'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.all(16),
-                            minimumSize: const Size(double.infinity, 50),
-                            side: const BorderSide(color: AppColors.electricPurple),
-                            foregroundColor: AppColors.electricPurple,
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.spacingM),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.darkCard.withValues(alpha: 0.75)
+                            : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                        border: Border.all(
+                          color: isDark ? AppColors.gray700 : AppColors.gray200,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Need help before checkout?',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        );
-                      },
+                          const SizedBox(height: 6),
+                          Text(
+                            'Talk to support or quickly add this item while you browse.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: isDark ? AppColors.gray400 : AppColors.gray600,
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.spacingM),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => SupportUtils.startSupportChat(context),
+                                  icon: const Icon(Icons.support_agent),
+                                  label: const Text('Support'),
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(0, 44),
+                                    foregroundColor: AppColors.electricPurple,
+                                    side: const BorderSide(
+                                      color: AppColors.electricPurple,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: AppTheme.spacingS),
+                              Expanded(
+                                child: FilledButton.icon(
+                                  onPressed: _addToCart,
+                                  icon: const Icon(Icons.add_shopping_cart, size: 18),
+                                  label: const Text('Quick Add'),
+                                  style: FilledButton.styleFrom(
+                                    minimumSize: const Size(0, 44),
+                                    backgroundColor: AppColors.primaryIndigo,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: AppTheme.spacingL),
 
@@ -434,59 +479,95 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(AppTheme.spacingM),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkCard : Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -4),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkCard : Colors.white,
+            border: Border(
+              top: BorderSide(
+                color: isDark ? AppColors.gray700 : AppColors.gray200,
+              ),
             ),
-          ],
-        ),
-        child: SafeArea(
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
           child: Row(
             children: [
-              // Quantity Selector
-              Container(
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkBackground : Colors.grey[100],
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                ),
-                child: Row(
+              Expanded(
+                flex: 5,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.remove),
-                      onPressed: () {
-                        if (_quantity > 1) setState(() => _quantity--);
-                      },
-                    ),
                     Text(
-                      '$_quantity',
+                      Formatters.formatCurrency(widget.product.price),
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryIndigo,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.add),
-                      onPressed: () {
-                        // TODO: Check max stock
-                        setState(() => _quantity++);
-                      },
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.product.inStock ? 'In stock' : 'Out of stock',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: widget.product.inStock
+                            ? AppColors.success
+                            : AppColors.error,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: AppTheme.spacingM),
-              
-              // Add to Cart Button
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkBackground : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove, size: 18),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: _quantity > 1
+                          ? () => setState(() => _quantity--)
+                          : null,
+                    ),
+                    Text(
+                      '$_quantity',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add, size: 18),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => setState(() => _quantity++),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppTheme.spacingS),
               Expanded(
-                child: AuthButton(
-                  text: 'Add to Cart',
-                  onPressed: _addToCart,
-                  isLoading: false,
+                flex: 4,
+                child: SizedBox(
+                  height: 46,
+                  child: FilledButton.icon(
+                    onPressed: widget.product.inStock ? _addToCart : null,
+                    icon: const Icon(Icons.shopping_bag_outlined, size: 18),
+                    label: const Text('Add to Cart'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primaryIndigo,
+                      disabledBackgroundColor: AppColors.gray400,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -499,12 +580,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Future<void> _showAddReviewDialog(BuildContext context) async {
     final auth = context.read<AuthProvider>();
     if (!auth.isAuthenticated) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please login to review')));
+      AppFeedback.info(context, 'Please log in to write a review.');
       return;
     }
 
     double rating = 5.0;
     final commentController = TextEditingController();
+    bool isSubmitting = false;
 
     showDialog(
       context: context,
@@ -527,6 +609,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               TextField(
                 controller: commentController,
                 maxLines: 3,
+                textInputAction: TextInputAction.newline,
                 decoration: const InputDecoration(
                   hintText: 'Share your experience...',
                   border: OutlineInputBorder(),
@@ -535,11 +618,16 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
-              onPressed: () async {
-                if (commentController.text.isEmpty) return;
-                
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                if (commentController.text.trim().isEmpty) return;
+                setState(() => isSubmitting = true);
                 try {
                   await context.read<ReviewProvider>().addReview(
                     widget.product.productId,
@@ -550,10 +638,25 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   );
                   if (context.mounted) Navigator.pop(context);
                 } catch (e) {
-                  debugPrint('Review Error: $e');
+                  if (!context.mounted) return;
+                  AppFeedback.error(
+                    context,
+                    e,
+                    fallbackMessage: 'Could not submit review.',
+                    nextStep: 'Please retry.',
+                  );
+                } finally {
+                  if (context.mounted) {
+                    setState(() => isSubmitting = false);
+                  }
                 }
-              }, 
-              child: const Text('Submit'),
+              },
+              child: isSubmitting
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Submit'),
             ),
           ],
         ),

@@ -9,6 +9,7 @@ class OptimizedNetworkImage extends StatelessWidget {
   final double? height;
   final int? memCacheWidth;
   final int? memCacheHeight;
+  final FilterQuality filterQuality;
   final Widget? errorWidget;
   final Widget? placeholder;
 
@@ -20,6 +21,7 @@ class OptimizedNetworkImage extends StatelessWidget {
     this.height,
     this.memCacheWidth,
     this.memCacheHeight,
+    this.filterQuality = FilterQuality.low,
     this.errorWidget,
     this.placeholder,
   });
@@ -59,7 +61,7 @@ class OptimizedNetworkImage extends StatelessWidget {
       memCacheHeight: memCacheHeight,
       maxHeightDiskCache: 800,
       maxWidthDiskCache: maxWidthDiskCacheDefault,
-      filterQuality: FilterQuality.none, // Fastest rendering
+      filterQuality: filterQuality,
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
       placeholderFadeInDuration: Duration.zero,
