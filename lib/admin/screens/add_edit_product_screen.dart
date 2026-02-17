@@ -48,9 +48,10 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     _brandController = TextEditingController(text: p?.brand);
     _descController = TextEditingController(text: p?.description);
     _priceController = TextEditingController(text: p?.price.toString());
-    _stockController = TextEditingController(text: p?.stockQuantity.toString() ?? '10');
+    _stockController =
+        TextEditingController(text: p?.stockQuantity.toString() ?? '10');
     _imageController = TextEditingController(text: p?.mainImage);
-    
+
     if (p != null) {
       _selectedCategory = p.category;
       _isOnSale = p.isOnSale;
@@ -72,7 +73,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    
+
     if (image != null) {
       setState(() => _pickedFile = image);
     }
@@ -90,37 +91,37 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       final desc = _descController.text.trim();
       final price = double.parse(_priceController.text.trim());
       final stock = int.parse(_stockController.text.trim());
-      
+
       // Handle Image Upload
       String? imageUrl = _imageController.text.trim();
-      
+
       if (_pickedFile != null) {
         try {
           final uploadedUrl = await CloudinaryService.uploadImage(_pickedFile!);
           if (uploadedUrl != null) {
             imageUrl = uploadedUrl;
           } else {
-             throw Exception('Cloudinary upload returned null URL');
+            throw Exception('Cloudinary upload returned null URL');
           }
         } catch (e) {
-           if (mounted) {
-             AppFeedback.error(
-               context,
-               e,
-               fallbackMessage: 'Image upload failed.',
-               nextStep: 'Choose another image or retry.',
-             );
-           }
-           // Stop saving if image upload fails
-           setState(() => _isLoading = false);
-           return;
+          if (mounted) {
+            AppFeedback.error(
+              context,
+              e,
+              fallbackMessage: 'Image upload failed.',
+              nextStep: 'Choose another image or retry.',
+            );
+          }
+          // Stop saving if image upload fails
+          setState(() => _isLoading = false);
+          return;
         }
       }
 
       if (widget.product == null) {
         // ADD
         final newProduct = ProductModel(
-          productId: '', 
+          productId: '',
           name: name,
           description: desc,
           price: price,
@@ -135,7 +136,9 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         );
         final created = await provider.addProduct(newProduct);
         if (!created) {
-          throw Exception('Could not create product.');
+          throw Exception(
+            provider.lastOperationError ?? 'Could not create product.',
+          );
         }
         await AuditLogService.log(
           action: 'PRODUCT_CREATE',
@@ -164,7 +167,9 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 
         final updated = await provider.updateProduct(updatedProduct);
         if (!updated) {
-          throw Exception('Could not update product.');
+          throw Exception(
+            provider.lastOperationError ?? 'Could not update product.',
+          );
         }
         await AuditLogService.log(
           action: 'PRODUCT_UPDATE',
@@ -250,22 +255,26 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-               DropdownButtonFormField<String>(
+              DropdownButtonFormField<String>(
                 initialValue: _selectedCategory,
                 decoration: InputDecoration(
                   labelText: 'Category',
-                  prefixIcon: const Icon(Icons.category, color: AppColors.gray500),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon:
+                      const Icon(Icons.category, color: AppColors.gray500),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
-                items: AppConstants.productCategories.map((c) => DropdownMenuItem(
-                  value: c,
-                  child: Text(c),
-                )).toList(),
+                items: AppConstants.productCategories
+                    .map((c) => DropdownMenuItem(
+                          value: c,
+                          child: Text(c),
+                        ))
+                    .toList(),
                 onChanged: (val) => setState(() => _selectedCategory = val!),
               ),
               const SizedBox(height: 16),
               const SizedBox(height: 16),
-               
+
               AuthTextField(
                 controller: _imageController,
                 labelText: 'Image URL',
@@ -273,7 +282,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 onChanged: (_) => setState(() {}), // Refresh to show preview
               ),
               const SizedBox(height: 16),
-              
+
               // Image Picker
               GestureDetector(
                 onTap: _pickImage,
@@ -288,9 +297,14 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                   child: _pickedFile != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(11),
-                          child: kIsWeb 
-                             ? Image.network(_pickedFile!.path, fit: BoxFit.cover)
-                             : Image.file(File(_pickedFile!.path), fit: BoxFit.cover, errorBuilder: (_,__,___) => const Center(child: Icon(Icons.check_circle, size: 50, color: AppColors.success))),
+                          child: kIsWeb
+                              ? Image.network(_pickedFile!.path,
+                                  fit: BoxFit.cover)
+                              : Image.file(File(_pickedFile!.path),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const Center(
+                                      child: Icon(Icons.check_circle,
+                                          size: 50, color: AppColors.success))),
                         )
                       : (_imageController.text.isNotEmpty
                           ? ClipRRect(
@@ -298,15 +312,18 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                               child: Image.network(
                                 _imageController.text,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_,__,___) => const Center(child: Icon(Icons.broken_image)),
+                                errorBuilder: (_, __, ___) => const Center(
+                                    child: Icon(Icons.broken_image)),
                               ),
                             )
                           : const Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.add_a_photo, size: 40, color: Colors.grey),
+                                Icon(Icons.add_a_photo,
+                                    size: 40, color: Colors.grey),
                                 SizedBox(height: 8),
-                                Text('Tap to upload or paste URL above', style: TextStyle(color: Colors.grey)),
+                                Text('Tap to upload or paste URL above',
+                                    style: TextStyle(color: Colors.grey)),
                               ],
                             )),
                 ),
@@ -315,12 +332,13 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               if (_pickedFile != null)
                 const Center(
                   child: Text(
-                    'Image selected (Will upload on save)', 
-                    style: TextStyle(color: AppColors.electricPurple, fontSize: 12),
+                    'Image selected (Will upload on save)',
+                    style: TextStyle(
+                        color: AppColors.electricPurple, fontSize: 12),
                   ),
                 ),
               const SizedBox(height: 16),
-              
+
               AuthTextField(
                 controller: _descController,
                 labelText: 'Description',
@@ -343,7 +361,9 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               ),
               const SizedBox(height: 32),
               AuthButton(
-                text: widget.product == null ? 'Create Product' : 'Update Product',
+                text: widget.product == null
+                    ? 'Create Product'
+                    : 'Update Product',
                 onPressed: _saveProduct,
                 isLoading: _isLoading,
               ),

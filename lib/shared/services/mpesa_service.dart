@@ -1,137 +1,89 @@
 import 'dart:convert';
+
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
-import '../../core/constants/secrets.dart';
 
 class MpesaService {
   static final MpesaService instance = MpesaService._();
-  
+  static const String _localMpesaBaseUrl =
+      String.fromEnvironment('MPESA_LOCAL_BASE_URL');
+
   MpesaService._();
 
-  String? _accessToken;
-  DateTime? _tokenExpiry;
+  final FirebaseFunctions _functions =
+      FirebaseFunctions.instanceFor(region: 'us-central1');
 
-  /// Generate Access Token (OAuth 2.0)
-  Future<String?> getAccessToken() async {
-    try {
-      if (_accessToken != null && 
-          _tokenExpiry != null && 
-          DateTime.now().isBefore(_tokenExpiry!)) {
-        return _accessToken;
-      }
-
-      final credentials = '${MpesaSecrets.consumerKey}:${MpesaSecrets.consumerSecret}';
-      final bytes = utf8.encode(credentials);
-      final base64Credentials = base64.encode(bytes);
-
-      final response = await http.get(
-        Uri.parse('${MpesaSecrets.baseUrl}/oauth/v1/generate?grant_type=client_credentials'),
-        headers: {
-          'Authorization': 'Basic $base64Credentials',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        _accessToken = data['access_token'];
-        final expiresIn = data['expires_in'] as String; // Usually seconds as string or int
-        _tokenExpiry = DateTime.now().add(Duration(seconds: int.parse(expiresIn)));
-        return _accessToken;
-      } else {
-        debugPrint('MPESA Auth Failed: [${response.statusCode}] ${response.body}');
-        return null;
-      }
-    } catch (e) {
-      debugPrint('MPESA Auth Error: $e');
-      return null;
-    }
-  }
-
-  /// Initiate STK Push (Lipa Na M-PESA Online)
+  /// Initiate STK Push through Firebase Cloud Functions.
+  /// Falls back to local backend only in debug mode.
   Future<Map<String, dynamic>> initiateStkPush({
     required String phoneNumber,
     required double amount,
-    required String accountReference, // e.g. Order ID
+    required String accountReference,
     required String transactionDesc,
   }) async {
-    if (kIsWeb) {
-      return _initiateStkPushViaLocalServer(
-        phoneNumber: phoneNumber,
-        amount: amount,
-        accountReference: accountReference,
-        transactionDesc: transactionDesc,
-      );
-    }
-
-    if (kDebugMode) {
-      final local = await _initiateStkPushViaLocalServer(
-        phoneNumber: phoneNumber,
-        amount: amount,
-        accountReference: accountReference,
-        transactionDesc: transactionDesc,
-      );
-      if (local['success'] == true) return local;
-      debugPrint(
-        'Local STK server unavailable, falling back to direct API: ${local['error']}',
-      );
-    }
-
-    final token = await getAccessToken();
-    if (token == null) {
-      throw Exception('Failed to get access token');
-    }
-
-    final timestamp = DateFormat('yyyyMMddHHmmss').format(DateTime.now());
-    final password = 
-        base64.encode(utf8.encode('${MpesaSecrets.shortCode}${MpesaSecrets.passKey}$timestamp'));
-
-    // Format phone number: 07... to 2547...
-    String formattedPhone = phoneNumber.replaceAll('+', '').replaceAll(' ', '');
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '254${formattedPhone.substring(1)}';
-    }
-
-    final body = {
-      "BusinessShortCode": MpesaSecrets.shortCode,
-      "Password": password,
-      "Timestamp": timestamp,
-      "TransactionType": "CustomerPayBillOnline",
-      "Amount": amount.toInt(), // STK Push requires int commonly
-      "PartyA": formattedPhone,
-      "PartyB": MpesaSecrets.shortCode,
-      "PhoneNumber": formattedPhone,
-      "CallBackURL": MpesaSecrets.callbackUrl,
-      "AccountReference": accountReference,
-      "TransactionDesc": transactionDesc,
+    final payload = <String, dynamic>{
+      'phoneNumber': _normalizePhone(phoneNumber),
+      'amount': amount,
+      'accountReference': accountReference,
+      'transactionDesc': transactionDesc,
     };
 
     try {
-      final response = await http.post(
-        Uri.parse('${MpesaSecrets.baseUrl}/mpesa/stkpush/v1/processrequest'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode(body),
+      final callable = _functions.httpsCallable(
+        'mpesaStkPush',
+        options: HttpsCallableOptions(
+          timeout: const Duration(seconds: 35),
+        ),
       );
-
-      final responseData = json.decode(response.body);
-      
-      if (response.statusCode == 200) {
-        // Success: ResponseCode "0"
-        return {
-          'success': true,
-          'checkoutRequestID': responseData['CheckoutRequestID'],
-          'merchantRequestID': responseData['MerchantRequestID'],
-          'responseDescription': responseData['ResponseDescription'],
-        };
-      } else {
-        return {
-          'success': false,
-          'error': responseData['errorMessage'] ?? 'Request failed',
-        };
+      final result = await callable.call(payload);
+      final data = _asMap(result.data);
+      return _normalizeInitiateResponse(data);
+    } on FirebaseFunctionsException catch (e) {
+      if (kDebugMode) {
+        final fallback = await _initiateStkPushViaLocalServer(payload);
+        if (fallback['success'] == true) {
+          return fallback;
+        }
       }
+      return {
+        'success': false,
+        'error': e.message ?? 'M-Pesa backend unavailable (${e.code}).',
+      };
+    } catch (e) {
+      if (kDebugMode) {
+        final fallback = await _initiateStkPushViaLocalServer(payload);
+        if (fallback['success'] == true) {
+          return fallback;
+        }
+      }
+      return {
+        'success': false,
+        'error': e.toString(),
+      };
+    }
+  }
+
+  /// Optional status query endpoint if implemented in Cloud Functions.
+  Future<Map<String, dynamic>> queryTransactionStatus(
+    String checkoutRequestId,
+  ) async {
+    try {
+      final callable = _functions.httpsCallable(
+        'mpesaQueryTransactionStatus',
+        options: HttpsCallableOptions(
+          timeout: const Duration(seconds: 20),
+        ),
+      );
+      final result = await callable.call({
+        'checkoutRequestID': checkoutRequestId,
+      });
+      return _asMap(result.data);
+    } on FirebaseFunctionsException catch (e) {
+      return {
+        'success': false,
+        'error': e.message ?? 'Unable to query transaction status.',
+      };
     } catch (e) {
       return {
         'success': false,
@@ -140,88 +92,96 @@ class MpesaService {
     }
   }
 
-  /// Query Transaction Status
-  Future<Map<String, dynamic>> queryTransactionStatus(String checkoutRequestId) async {
-     final token = await getAccessToken();
-    if (token == null) {
-      throw Exception('Failed to get access token');
+  String _normalizePhone(String rawPhone) {
+    var phone = rawPhone.replaceAll(RegExp(r'[^0-9+]'), '');
+    phone = phone.replaceAll('+', '');
+    if (phone.startsWith('0')) {
+      phone = '254${phone.substring(1)}';
     }
+    if (phone.startsWith('7') && phone.length == 9) {
+      phone = '254$phone';
+    }
+    return phone;
+  }
 
-    final timestamp = DateFormat('yyyyMMddHHmmss').format(DateTime.now());
-    final password = 
-        base64.encode(utf8.encode('${MpesaSecrets.shortCode}${MpesaSecrets.passKey}$timestamp'));
+  Map<String, dynamic> _normalizeInitiateResponse(Map<String, dynamic> data) {
+    final checkoutRequestId = data['checkoutRequestID']?.toString() ??
+        data['CheckoutRequestID']?.toString();
+    final merchantRequestId = data['merchantRequestID']?.toString() ??
+        data['MerchantRequestID']?.toString();
+    final responseDescription = data['responseDescription']?.toString() ??
+        data['ResponseDescription']?.toString() ??
+        data['CustomerMessage']?.toString();
+    final responseCode =
+        data['responseCode']?.toString() ?? data['ResponseCode']?.toString();
+    final errorMessage = data['error']?.toString() ??
+        data['message']?.toString() ??
+        data['errorMessage']?.toString();
 
-    final body = {
-      "BusinessShortCode": MpesaSecrets.shortCode,
-      "Password": password,
-      "Timestamp": timestamp,
-      "CheckoutRequestID": checkoutRequestId
+    final success = data['success'] == true ||
+        responseCode == '0' ||
+        (checkoutRequestId != null && checkoutRequestId.isNotEmpty);
+
+    return {
+      'success': success,
+      'checkoutRequestID': checkoutRequestId,
+      'merchantRequestID': merchantRequestId,
+      'responseDescription': responseDescription,
+      if (!success) 'error': errorMessage ?? 'M-Pesa request failed.',
     };
+  }
 
+  Future<Map<String, dynamic>> _initiateStkPushViaLocalServer(
+    Map<String, dynamic> payload,
+  ) async {
     try {
       final response = await http.post(
-        Uri.parse('${MpesaSecrets.baseUrl}/mpesa/stkpushquery/v1/query'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode(body),
+        Uri.parse(_localServerUrl()),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(payload),
       );
 
-      return json.decode(response.body);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = _asMap(json.decode(response.body));
+        return _normalizeInitiateResponse(data);
+      }
+
+      final decoded =
+          response.body.isNotEmpty ? _asMap(json.decode(response.body)) : {};
+      return {
+        'success': false,
+        'error': decoded['error']?.toString() ??
+            'Local M-Pesa backend error: ${response.statusCode}',
+      };
     } catch (e) {
-      return {'error': e.toString()};
+      return {
+        'success': false,
+        'error': e.toString(),
+      };
     }
   }
 
   String _localServerUrl() {
-    if (kIsWeb) return 'http://localhost:3000/mpesaStkPush';
+    if (_localMpesaBaseUrl.trim().isNotEmpty) {
+      final base = _localMpesaBaseUrl.trim().replaceAll(RegExp(r'/$'), '');
+      return '$base/mpesaStkPush';
+    }
+    if (kIsWeb) {
+      final origin = Uri.base;
+      final host = origin.host.isEmpty ? 'localhost' : origin.host;
+      return '${origin.scheme}://$host:3000/mpesaStkPush';
+    }
     if (defaultTargetPlatform == TargetPlatform.android) {
       return 'http://10.0.2.2:3000/mpesaStkPush';
     }
     return 'http://localhost:3000/mpesaStkPush';
   }
 
-  Future<Map<String, dynamic>> _initiateStkPushViaLocalServer({
-    required String phoneNumber,
-    required double amount,
-    required String accountReference,
-    required String transactionDesc,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse(_localServerUrl()),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'phoneNumber': phoneNumber,
-          'amount': amount,
-          'accountReference': accountReference,
-          'transactionDesc': transactionDesc,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return {
-          'success': true,
-          'checkoutRequestID': data['CheckoutRequestID'],
-          'merchantRequestID': data['MerchantRequestID'],
-          'responseDescription': data['ResponseDescription'],
-        };
-      } else {
-        final responseBody = json.decode(response.body);
-        return {
-          'success': false,
-          'error': responseBody['error'] ??
-              'Local Server Error: ${response.statusCode}',
-        };
-      }
-    } catch (e) {
-      debugPrint('Local Server Error: $e');
-      return {
-        'success': false,
-        'error': e.toString(),
-      };
+  Map<String, dynamic> _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map((key, val) => MapEntry(key.toString(), val));
     }
+    return <String, dynamic>{};
   }
 }

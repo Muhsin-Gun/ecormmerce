@@ -56,7 +56,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '419781318218',
     projectId: 'eshop-be005',
     storageBucket: 'eshop-be005.firebasestorage.app',
-    androidClientId: '419781318218-8e2m2udl14te444rrcbde8adjl8vdjni.apps.googleusercontent.com',
+    androidClientId: '419781318218-7qbse535lcfm5fmum578hvh3e86bljlg.apps.googleusercontent.com',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -65,7 +65,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '419781318218',
     projectId: 'eshop-be005',
     storageBucket: 'eshop-be005.firebasestorage.app',
-    androidClientId: '419781318218-8e2m2udl14te444rrcbde8adjl8vdjni.apps.googleusercontent.com',
+    androidClientId: '419781318218-7qbse535lcfm5fmum578hvh3e86bljlg.apps.googleusercontent.com',
     iosClientId: '419781318218-mpdpcpg5805cnsgii0soeql25chhrs7l.apps.googleusercontent.com',
     iosBundleId: 'com.example.ecormmerce',
   );
@@ -76,7 +76,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '419781318218',
     projectId: 'eshop-be005',
     storageBucket: 'eshop-be005.firebasestorage.app',
-    androidClientId: '419781318218-8e2m2udl14te444rrcbde8adjl8vdjni.apps.googleusercontent.com',
+    androidClientId: '419781318218-7qbse535lcfm5fmum578hvh3e86bljlg.apps.googleusercontent.com',
     iosClientId: '419781318218-mpdpcpg5805cnsgii0soeql25chhrs7l.apps.googleusercontent.com',
     iosBundleId: 'com.example.ecormmerce',
   );

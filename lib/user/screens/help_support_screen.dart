@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/support_utils.dart';
@@ -75,25 +76,25 @@ class HelpSupportScreen extends StatelessWidget {
             icon: Icons.chat_outlined,
             color: AppColors.neonBlue,
             onTap: () {
-              SupportUtils.startSupportChat(context);
+              SupportUtils.startSupportChat(context, forceNew: true);
             },
           ),
           const SizedBox(height: 12),
           _buildContactCard(
             context,
             title: 'Email Us',
-            subtitle: 'support@promarket.com',
+            subtitle: AppConstants.supportEmail,
             icon: Icons.email_outlined,
             color: AppColors.electricPurple,
             onTap: () {
-              // Open email client
+              _openSupportEmail();
             },
           ),
           const SizedBox(height: 12),
           _buildContactCard(
             context,
             title: 'Call Support',
-            subtitle: '0793027220',
+            subtitle: AppConstants.supportPhone,
             icon: Icons.phone_outlined,
             color: AppColors.success,
             onTap: () {
@@ -114,21 +115,32 @@ class HelpSupportScreen extends StatelessWidget {
   }
 
   Future<void> _openSupportDialer() async {
-    final uri = Uri(scheme: 'tel', path: '0793027220');
+    final uri = Uri(scheme: 'tel', path: AppConstants.supportPhone);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _openSupportEmail() async {
+    final uri = Uri(
+      scheme: 'mailto',
+      path: AppConstants.supportEmail,
+      queryParameters: const {
+        'subject': 'ProMarket Support Request',
+      },
+    );
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Widget _buildFAQTile(BuildContext context, {required String question, required String answer}) {
     return ExpansionTile(
       title: Text(question, style: const TextStyle(fontWeight: FontWeight.w600)),
+      shape: const RoundedRectangleBorder(side: BorderSide.none),
+      tilePadding: EdgeInsets.zero,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: Text(answer, style: const TextStyle(color: AppColors.gray500, height: 1.5)),
         ),
       ],
-      shape: const RoundedRectangleBorder(side: BorderSide.none),
-      tilePadding: EdgeInsets.zero,
     );
   }
 
@@ -151,7 +163,7 @@ class HelpSupportScreen extends StatelessWidget {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: color),

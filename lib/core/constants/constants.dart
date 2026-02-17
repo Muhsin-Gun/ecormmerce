@@ -9,6 +9,8 @@ class AppConstants {
   static const String appName = 'ProMarket';
   static const String appTagline = 'Buy. Sell. Manage. Anywhere.';
   static const String appVersion = '1.0.0';
+  static const String supportEmail = 'muhsin57891@gmail.com';
+  static const String supportPhone = '0793027220';
 
   // ==================== FIRESTORE COLLECTIONS ====================
   

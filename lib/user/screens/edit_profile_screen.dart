@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -45,7 +46,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _pickProfilePhoto(ImageSource source) async {
     try {
-      final file = await _picker.pickImage(source: source, imageQuality: 80, maxWidth: 1200);
+      final file = await _picker.pickImage(
+        source: source,
+        imageQuality: 80,
+        maxWidth: 1200,
+        preferredCameraDevice: CameraDevice.rear,
+      );
       if (file == null) return;
 
       setState(() => _isLoading = true);
@@ -56,6 +62,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _profileImageUrl = url;
         _profileImageVersion = DateTime.now().millisecondsSinceEpoch;
       });
+    } on PlatformException catch (e) {
+      if (mounted) {
+        AppFeedback.error(
+          context,
+          e.message ?? e.code,
+          fallbackMessage: 'Camera access failed.',
+          nextStep: 'Allow camera permission and try again.',
+        );
+      }
     } catch (e) {
       if (mounted) {
         AppFeedback.error(
@@ -88,11 +103,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         profileImageUrl: _profileImageUrl,
         updatedAt: DateTime.now(),
       );
-      await auth.updateProfile(updatedUser);
+      final success = await auth.updateProfile(updatedUser);
+      if (!success) {
+        throw Exception(
+          auth.errorMessage ?? 'Could not update profile. Please try again.',
+        );
+      }
 
       if (mounted) {
-        Navigator.pop(context);
-        AppFeedback.success(context, 'Profile updated successfully');
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {

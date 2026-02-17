@@ -153,6 +153,31 @@ service cloud.firestore {
         isValidSelfUserWrite(userId);
     }
 
+    // Allow lightweight self profile/preferences patches for legacy user docs.
+    function isSafeSelfUserPatchUpdate(userId) {
+      return isSelf(userId) &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'name',
+          'phone',
+          'profileImageUrl',
+          'darkMode',
+          'notificationsEnabled',
+          'updatedAt',
+        ]) &&
+        (!request.resource.data.keys().hasAny(['name']) ||
+          isNonEmptyString(request.resource.data.name, 100)) &&
+        (!request.resource.data.keys().hasAny(['phone']) ||
+          isOptionalString(request.resource.data.phone, 32)) &&
+        (!request.resource.data.keys().hasAny(['profileImageUrl']) ||
+          isOptionalString(request.resource.data.profileImageUrl, 3000)) &&
+        (!request.resource.data.keys().hasAny(['darkMode']) ||
+          request.resource.data.darkMode is bool) &&
+        (!request.resource.data.keys().hasAny(['notificationsEnabled']) ||
+          request.resource.data.notificationsEnabled is bool) &&
+        (!request.resource.data.keys().hasAny(['updatedAt']) ||
+          isDateLike(request.resource.data.updatedAt));
+    }
+
     // Notifications and audit validation
     function isValidNotificationDocument() {
       return request.resource.data.keys().hasAll(['title', 'body', 'type']) &&
@@ -378,8 +403,9 @@ service cloud.firestore {
     // Products
     match /products/{productId} {
       allow read: if true;
-      allow create, delete: if isAdmin() &&
+      allow create: if isAdmin() &&
         isValidProductDocument(request.resource.data);
+      allow delete: if isAdmin();
       allow update: if (isAdmin() &&
           isValidProductDocument(request.resource.data)) ||
         (isEmployee() && isValidProductStockOnlyUpdate()) ||
@@ -390,7 +416,9 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSelf(userId) || isAdmin() || resource.data.role == 'admin';
       allow create: if (isSelf(userId) && isValidSelfUserWrite(userId)) || isAdmin();
-      allow update: if isAdmin() || isSafeSelfUserUpdate(userId);
+      allow update: if isAdmin() ||
+        isSafeSelfUserUpdate(userId) ||
+        isSafeSelfUserPatchUpdate(userId);
       allow delete: if isAdmin() || isSelf(userId);
 
       match /notifications/{notificationId} {

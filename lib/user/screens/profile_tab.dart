@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_feedback.dart';
 import '../../shared/providers/order_provider.dart';
 import '../../shared/providers/wishlist_provider.dart';
 import '../../shared/widgets/section_header.dart';
@@ -119,11 +120,16 @@ class _ProfileTabState extends State<ProfileTab>
                     ),
                   ),
                   IconButton.filledTonal(
-                    onPressed: () {
-                      Navigator.push(
+                    onPressed: () async {
+                      final auth = context.read<AuthProvider>();
+                      final updated = await Navigator.push<bool>(
                         context,
                         MaterialPageRoute(builder: (_) => const EditProfileScreen()),
                       );
+                      if (!context.mounted || updated != true) return;
+                      await auth.reloadUser();
+                      if (!context.mounted) return;
+                      AppFeedback.success(context, 'Profile updated successfully');
                     },
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.white.withValues(alpha: 0.18),

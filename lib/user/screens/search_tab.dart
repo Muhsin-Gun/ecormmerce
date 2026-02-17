@@ -18,7 +18,8 @@ class SearchTab extends StatefulWidget {
   State<SearchTab> createState() => _SearchTabState();
 }
 
-class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixin {
+class _SearchTabState extends State<SearchTab>
+    with AutomaticKeepAliveClientMixin {
   final _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   Timer? _searchDebounce;
@@ -170,8 +171,8 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
                         final crossAxisCount =
                             constraints.maxWidth > 600 ? 3 : 2;
                         final gridAspectRatio = isWebLike
-                            ? 0.86
-                            : (screenWidth >= 600 ? 0.82 : 0.74);
+                            ? 0.82
+                            : (screenWidth >= 600 ? 0.76 : 0.68);
 
                         return GridView.builder(
                           key: const PageStorageKey('search_grid_scroll'),
@@ -215,7 +216,6 @@ class _SearchTabState extends State<SearchTab> with AutomaticKeepAliveClientMixi
       ),
     );
   }
-
 
   @override
   bool get wantKeepAlive => true;

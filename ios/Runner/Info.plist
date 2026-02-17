@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Ecormmerce</string>
+	<string>ProMarket</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>ecormmerce</string>
+	<string>ProMarket</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -56,6 +56,12 @@
 	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>ProMarket needs camera access so you can take product and profile photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ProMarket needs photo library access so you can choose images to upload.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>ProMarket may save captured photos before upload.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>ProMarket uses your location to auto-fill delivery addresses.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

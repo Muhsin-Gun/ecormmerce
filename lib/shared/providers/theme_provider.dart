@@ -9,8 +9,10 @@ import '../../core/constants/constants.dart';
 /// Syncs theme preference to SharedPreferences and Firestore
 class ThemeProvider extends ChangeNotifier {
   bool _isDarkMode = false; // Light mode by default
-  bool _isLoading = false;
+  final bool _isLoading = false;
   String? _userId;
+  bool _isInitialized = false;
+  int _themeRevision = 0;
 
   bool get isDarkMode => _isDarkMode;
   bool get isLoading => _isLoading;
@@ -22,6 +24,14 @@ class ThemeProvider extends ChangeNotifier {
 
   /// Initialize theme from SharedPreferences
   Future<void> init({String? userId}) async {
+    if (_isInitialized) {
+      if (userId != null) {
+        setUserId(userId);
+      }
+      return;
+    }
+
+    _isInitialized = true;
     _userId = userId;
     await _loadThemeFromLocal();
 
@@ -45,6 +55,7 @@ class ThemeProvider extends ChangeNotifier {
   /// Load theme preference from Firestore (for logged-in users)
   Future<void> _loadThemeFromFirestore() async {
     if (_userId == null) return;
+    final requestRevision = _themeRevision;
 
     try {
       final doc = await _firestore
@@ -52,16 +63,25 @@ class ThemeProvider extends ChangeNotifier {
           .doc(_userId)
           .get();
 
+      // Local theme changed while this read was in flight.
+      if (requestRevision != _themeRevision) {
+        return;
+      }
+
       if (doc.exists) {
         final data = doc.data();
         if (data != null && data.containsKey('darkMode')) {
-          _isDarkMode = data['darkMode'] as bool? ?? false;
+          final remoteDarkMode = data['darkMode'] as bool? ?? false;
+          final shouldNotify = remoteDarkMode != _isDarkMode;
+          _isDarkMode = remoteDarkMode;
 
           // Save to local as well
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool(AppConstants.prefThemeMode, _isDarkMode);
 
-          notifyListeners();
+          if (shouldNotify) {
+            notifyListeners();
+          }
         }
       }
     } catch (e) {
@@ -80,10 +100,11 @@ class ThemeProvider extends ChangeNotifier {
   Future<void> setThemeMode(bool isDark) async {
     if (_isDarkMode == isDark) return;
 
+    _themeRevision++;
     _isDarkMode = isDark;
     notifyListeners();
 
-    unawaited(_persistThemePreference());
+    unawaited(_persistThemePreference(expectedRevision: _themeRevision));
   }
 
   /// Set dark mode
@@ -98,18 +119,20 @@ class ThemeProvider extends ChangeNotifier {
 
   // ==================== PERSISTENCE ====================
 
-  Future<void> _persistThemePreference() async {
-    await _saveThemeToLocal();
+  Future<void> _persistThemePreference({required int expectedRevision}) async {
+    await _saveThemeToLocal(expectedRevision: expectedRevision);
 
     if (_userId != null) {
-      await _saveThemeToFirestore();
+      await _saveThemeToFirestore(expectedRevision: expectedRevision);
     }
   }
 
   /// Save theme to SharedPreferences
-  Future<void> _saveThemeToLocal() async {
+  Future<void> _saveThemeToLocal({required int expectedRevision}) async {
+    if (expectedRevision != _themeRevision) return;
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (expectedRevision != _themeRevision) return;
       await prefs.setBool(AppConstants.prefThemeMode, _isDarkMode);
     } catch (e) {
       debugPrint('Error saving theme to local: $e');
@@ -117,8 +140,9 @@ class ThemeProvider extends ChangeNotifier {
   }
 
   /// Save theme to Firestore
-  Future<void> _saveThemeToFirestore() async {
+  Future<void> _saveThemeToFirestore({required int expectedRevision}) async {
     if (_userId == null) return;
+    if (expectedRevision != _themeRevision) return;
 
     try {
       await _firestore
@@ -137,6 +161,7 @@ class ThemeProvider extends ChangeNotifier {
 
   /// Update user ID when user logs in
   void setUserId(String? userId) {
+    if (_userId == userId) return;
     _userId = userId;
 
     if (_userId != null) {

@@ -491,9 +491,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
+                      interval: 1,
                       getTitlesWidget: (value, _) {
+                        final rounded = value.round();
+                        if ((value - rounded).abs() > 0.001) {
+                          return const SizedBox.shrink();
+                        }
                         const labels = ['6d', '5d', '4d', '3d', '2d', '1d', 'Today'];
-                        final idx = value.toInt();
+                        final idx = rounded;
                         if (idx < 0 || idx >= labels.length) {
                           return const SizedBox.shrink();
                         }

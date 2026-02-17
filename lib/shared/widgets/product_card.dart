@@ -53,7 +53,7 @@ class ProductCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AspectRatio(
-                aspectRatio: isCompact ? 0.98 : 1.03,
+                aspectRatio: isCompact ? 1.0 : 1.15,
                 child: Stack(
                   children: [
                     ClipRRect(
@@ -170,91 +170,115 @@ class ProductCard extends StatelessWidget {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(AppTheme.spacingS),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if ((product.brand ?? '').trim().isNotEmpty)
-                        Text(
-                          product.brand!,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.gray500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      if ((product.brand ?? '').trim().isNotEmpty)
-                        const SizedBox(height: 2),
-                      Text(
-                        product.name,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          fontSize: isCompact ? 12.5 : 13.2,
-                          height: 1.2,
-                        ),
-                        maxLines: isCompact ? 2 : 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const Spacer(),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isTight =
+                          constraints.maxHeight < (isCompact ? 104 : 124);
+                      final isVeryTight =
+                          constraints.maxHeight < (isCompact ? 92 : 112);
+                      final isNarrow = constraints.maxWidth < 150;
+                      final hasBrand = (product.brand ?? '').trim().isNotEmpty;
+                      final showBrand = hasBrand && !isTight && !isNarrow;
+                      final showComparePrice = !isVeryTight &&
+                          product.isOnSale &&
+                          product.compareAtPrice != null;
+                      final showCartButton =
+                          onAddToCart != null && !isVeryTight && !isNarrow;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  Formatters.formatCurrency(product.price),
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: AppColors.primaryIndigo,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: isCompact ? 15 : null,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                if (product.isOnSale &&
-                                    product.compareAtPrice != null)
-                                  Text(
-                                    Formatters.formatCurrency(
-                                      product.compareAtPrice!,
-                                    ),
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: AppColors.gray500,
-                                      decoration: TextDecoration.lineThrough,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                              ],
+                          if (showBrand)
+                            Text(
+                              product.brand!,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: AppColors.gray500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          if (showBrand) const SizedBox(height: 2),
+                          Flexible(
+                            child: Text(
+                              product.name,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: isCompact
+                                    ? (isVeryTight ? 12 : 12.5)
+                                    : (isVeryTight ? 12.6 : 13.2),
+                                height: 1.2,
+                              ),
+                              maxLines: isTight ? 1 : 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (onAddToCart != null) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              decoration: const BoxDecoration(
-                                color: AppColors.electricPurple,
-                                shape: BoxShape.circle,
-                              ),
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.add_shopping_cart,
-                                  color: Colors.white,
-                                  size: 17,
+                          SizedBox(height: isVeryTight ? 4 : 6),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      Formatters.formatCurrency(product.price),
+                                      style:
+                                          theme.textTheme.titleMedium?.copyWith(
+                                        color: AppColors.primaryIndigo,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: isCompact
+                                            ? (isVeryTight ? 13.5 : 15)
+                                            : (isVeryTight ? 14.5 : null),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (showComparePrice)
+                                      Text(
+                                        Formatters.formatCurrency(
+                                          product.compareAtPrice!,
+                                        ),
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                          color: AppColors.gray500,
+                                          decoration:
+                                              TextDecoration.lineThrough,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                  ],
                                 ),
-                                onPressed: onAddToCart,
-                                constraints: const BoxConstraints(
-                                  minWidth: 34,
-                                  minHeight: 34,
-                                ),
-                                padding: EdgeInsets.zero,
-                                visualDensity: VisualDensity.compact,
                               ),
-                            ),
-                          ],
+                              if (showCartButton) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.electricPurple,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: IconButton(
+                                    icon: const Icon(
+                                      Icons.add_shopping_cart,
+                                      color: Colors.white,
+                                      size: 17,
+                                    ),
+                                    onPressed: onAddToCart,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 34,
+                                      minHeight: 34,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ],
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
               ),

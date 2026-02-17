@@ -82,13 +82,17 @@ class ConversationListScreen extends StatelessWidget {
           }
 
           final conversations = snapshot.data!;
+          final visibleConversations = _collapseToLatestPerParticipant(
+            conversations: conversations,
+            currentUserId: currentUser?.uid ?? '',
+          );
 
           return ListView.separated(
               padding: const EdgeInsets.all(AppTheme.spacingM),
-              itemCount: conversations.length,
+              itemCount: visibleConversations.length,
               separatorBuilder: (context, index) => const Divider(height: 1),
               itemBuilder: (context, index) {
-                final conversation = conversations[index];
+                final conversation = visibleConversations[index];
                 
                 // Find other participant
                 String otherUserName = 'Unknown';
@@ -217,5 +221,28 @@ class ConversationListScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  List<ConversationModel> _collapseToLatestPerParticipant({
+    required List<ConversationModel> conversations,
+    required String currentUserId,
+  }) {
+    if (currentUserId.isEmpty) {
+      return conversations;
+    }
+
+    final latestByOtherUser = <String, ConversationModel>{};
+    for (final conversation in conversations) {
+      final otherUserId = conversation.participants.firstWhere(
+        (id) => id != currentUserId,
+        orElse: () => '',
+      );
+      if (otherUserId.isEmpty) {
+        continue;
+      }
+      latestByOtherUser.putIfAbsent(otherUserId, () => conversation);
+    }
+
+    return latestByOtherUser.values.toList();
   }
 }

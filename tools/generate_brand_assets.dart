@@ -91,38 +91,62 @@ List<int> bgGradient(int x, int y, int w, int h) {
 List<int> fgIcon(int x, int y, int w, int h) {
   final cx = w ~/ 2;
   final cy = h ~/ 2;
-  final dx = x - cx;
-  final dy = y - cy;
+  final dx = (x - cx).toDouble();
+  final dy = (y - cy).toDouble();
 
-  final r = math.sqrt((dx * dx + dy * dy).toDouble());
+  final r = math.sqrt(dx * dx + dy * dy);
   final inOuterBadge = r <= 320;
   final inInnerBadge = r <= 265;
 
-  final stem = dx >= -120 && dx <= -45 && dy >= -190 && dy <= 190;
-  final bowlOuter =
-      math.sqrt(math.pow(dx + 10, 2) + math.pow(dy + 70, 2)) <= 130 &&
-          dx >= -45 &&
-          dy <= 55;
-  final bowlInner =
-      math.sqrt(math.pow(dx + 10, 2) + math.pow(dy + 70, 2)) <= 78 &&
-          dx >= 18 &&
-          dy <= 55;
-  final letterP = stem || (bowlOuter && !bowlInner);
+  // Normalize drawing space for easier shape math.
+  final nx = dx / 265.0;
+  final ny = dy / 265.0;
 
-  final accent =
-      math.sqrt(math.pow(dx - 160, 2) + math.pow(dy + 155, 2)) <= 34;
-
-  if (letterP) {
-    return [15, 118, 110, 255];
+  bool inRoundedRect(double left, double top, double right, double bottom,
+      double radius) {
+    final clampedX = nx.clamp(left + radius, right - radius);
+    final clampedY = ny.clamp(top + radius, bottom - radius);
+    final rx = nx - clampedX;
+    final ry = ny - clampedY;
+    return (rx * rx + ry * ry) <= radius * radius ||
+        (nx >= left + radius &&
+            nx <= right - radius &&
+            ny >= top &&
+            ny <= bottom) ||
+        (ny >= top + radius &&
+            ny <= bottom - radius &&
+            nx >= left &&
+            nx <= right);
   }
-  if (accent) {
+
+  final bagBody = inRoundedRect(-0.44, -0.02, 0.44, 0.56, 0.10);
+  final handleOuter =
+      math.sqrt(math.pow(nx, 2) + math.pow(ny + 0.09, 2)) <= 0.29 &&
+          ny <= 0.12;
+  final handleInner =
+      math.sqrt(math.pow(nx, 2) + math.pow(ny + 0.09, 2)) < 0.20 &&
+          ny <= 0.14;
+  final handle = handleOuter && !handleInner;
+
+  // A subtle forward slash suggests motion/growth without text.
+  final slash = nx > -0.12 &&
+      nx < 0.12 &&
+      ny > -0.02 &&
+      ny < 0.36 &&
+      (ny - (nx * 1.6) > 0.01) &&
+      (ny - (nx * 1.6) < 0.16);
+
+  if (slash) {
     return [245, 158, 11, 255];
   }
+  if (bagBody || handle) {
+    return [13, 27, 42, 255];
+  }
   if (inInnerBadge) {
-    return [255, 255, 255, 255];
+    return [242, 248, 252, 255];
   }
   if (inOuterBadge) {
-    return [15, 118, 110, 255];
+    return [14, 116, 144, 255];
   }
 
   return [0, 0, 0, 0];

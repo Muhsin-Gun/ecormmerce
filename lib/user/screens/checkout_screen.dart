@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/constants/constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
@@ -13,6 +14,7 @@ import '../../shared/services/mpesa_service.dart';
 import 'order_success_screen.dart';
 import '../../core/utils/app_error_reporter.dart';
 import '../../core/utils/app_feedback.dart';
+import 'dart:async';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -25,7 +27,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _formKey = GlobalKey<FormState>();
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
-  String _selectedPaymentMethod = 'MPESA';
+  String _selectedPaymentMethod = AppConstants.paymentMethodMpesa;
   bool _isLoading = false;
 
   @override
@@ -34,7 +36,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final user = context.read<AuthProvider>().userModel;
     if (user != null) {
       // Pre-fill if available (assuming user model has these fields in future)
-      // _addressController.text = user.address ?? ''; 
+      // _addressController.text = user.address ?? '';
       _phoneController.text = user.phoneNumber;
     }
   }
@@ -48,9 +50,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _placeOrder() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _isLoading = true);
-    
+
     final cart = context.read<CartProvider>();
     final user = context.read<AuthProvider>().userModel;
     if (user == null) {
@@ -64,7 +66,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       setState(() => _isLoading = false);
       return;
     }
-    
+
     // Create detailed order map
     final orderData = {
       'userId': user.uid,
@@ -74,9 +76,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       'total': cart.total,
       'subtotal': cart.subtotal,
       'discount': cart.discountAmount,
-      'status': 'pending', 
+      'status': AppConstants.orderStatusPending,
       'paymentMethod': _selectedPaymentMethod,
-      'paymentStatus': 'pending',
+      'paymentStatus': _selectedPaymentMethod == AppConstants.paymentMethodMpesa
+          ? AppConstants.paymentStatusProcessing
+          : AppConstants.paymentStatusPending,
       'deliveryAddress': {
         'street': _addressController.text,
         'city': '',
@@ -89,68 +93,76 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     try {
       // simulate network delay for UX
       // Save order to Firestore
-      final orderDoc = await FirebaseService.instance.addDocument('orders', orderData);
+      final orderDoc =
+          await FirebaseService.instance.addDocument('orders', orderData);
+      String? mpesaCheckoutRequestId;
+      String? mpesaMerchantRequestId;
+      String transactionStatus =
+          _selectedPaymentMethod == AppConstants.paymentMethodMpesa
+              ? AppConstants.paymentStatusProcessing
+              : AppConstants.paymentStatusPending;
 
       // Handle MPESA Payment Trigger
-      // Handle MPESA Payment Trigger
-      if (_selectedPaymentMethod == 'MPESA') {
-         try {
-           final mpesaResponse = await MpesaService.instance.initiateStkPush(
-             phoneNumber: _phoneController.text,
-             amount: cart.total,
-             accountReference: orderDoc.id,
-             transactionDesc: 'Payment for Order ${orderDoc.id}',
-           );
-           
-           if (!mpesaResponse['success']) {
-             await FirebaseService.instance.updateDocument(
-               'orders',
-               orderDoc.id,
-               {
-                 'paymentStatus': 'failed',
-                 'updatedAt': DateTime.now().toIso8601String(),
-               },
-              );
-              if (!mounted) return;
-              AppFeedback.error(
-                context,
-                mpesaResponse['error'] ?? 'Payment initiation failed.',
-                nextStep: 'Retry or choose another payment method.',
-              );
-              return;
-            }
+      if (_selectedPaymentMethod == AppConstants.paymentMethodMpesa) {
+        try {
+          final mpesaResponse = await MpesaService.instance.initiateStkPush(
+            phoneNumber: _phoneController.text,
+            amount: cart.total,
+            accountReference: orderDoc.id,
+            transactionDesc: 'Payment for Order ${orderDoc.id}',
+          );
 
-           await FirebaseService.instance.updateDocument(
-             'orders',
-             orderDoc.id,
-             {
-               'paymentStatus': 'processing',
-               'mpesaCheckoutRequestId': mpesaResponse['checkoutRequestID'],
-               'mpesaMerchantRequestId': mpesaResponse['merchantRequestID'],
-               'mpesaPhoneNumber': _phoneController.text,
-               'updatedAt': DateTime.now().toIso8601String(),
-             },
-           );
-         } catch (e) {
-           debugPrint('MPESA Error: $e');
-           await AppErrorReporter.report(e, null);
-           await FirebaseService.instance.updateDocument(
-             'orders',
-             orderDoc.id,
-             {
-               'paymentStatus': 'failed',
-               'updatedAt': DateTime.now().toIso8601String(),
-             },
+          if (!mpesaResponse['success']) {
+            await FirebaseService.instance.updateDocument(
+              'orders',
+              orderDoc.id,
+              {
+                'paymentStatus': AppConstants.paymentStatusFailed,
+              },
             );
             if (!mounted) return;
             AppFeedback.error(
               context,
-              e,
-              fallbackMessage: 'Payment request failed.',
-              nextStep: 'Retry in a moment.',
+              mpesaResponse['error'] ?? 'Payment initiation failed.',
+              nextStep: 'Retry or choose another payment method.',
             );
             return;
           }
+
+          await FirebaseService.instance.updateDocument(
+            'orders',
+            orderDoc.id,
+            {
+              'paymentStatus': AppConstants.paymentStatusProcessing,
+              'mpesaCheckoutRequestId': mpesaResponse['checkoutRequestID'],
+              'mpesaMerchantRequestId': mpesaResponse['merchantRequestID'],
+              'mpesaPhoneNumber': _phoneController.text,
+            },
+          );
+          mpesaCheckoutRequestId =
+              mpesaResponse['checkoutRequestID']?.toString();
+          mpesaMerchantRequestId =
+              mpesaResponse['merchantRequestID']?.toString();
+          transactionStatus = AppConstants.paymentStatusProcessing;
+        } catch (e) {
+          debugPrint('MPESA Error: $e');
+          await AppErrorReporter.report(e, null);
+          await FirebaseService.instance.updateDocument(
+            'orders',
+            orderDoc.id,
+            {
+              'paymentStatus': AppConstants.paymentStatusFailed,
+            },
+          );
+          if (!mounted) return;
+          AppFeedback.error(
+            context,
+            e,
+            fallbackMessage: 'Payment request failed.',
+            nextStep: 'Retry in a moment.',
+          );
+          return;
+        }
       }
 
       // Create Pending Transaction Record
@@ -160,15 +172,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'userId': user.uid,
           'amount': cart.total,
           'method': _selectedPaymentMethod,
-          'status': 'pending', 
+          'status': transactionStatus,
           'createdAt': FieldValue.serverTimestamp(),
-          'mpesaPhoneNumber': _phoneController.text,
+          'mpesaPhoneNumber':
+              _selectedPaymentMethod == AppConstants.paymentMethodMpesa
+                  ? _phoneController.text
+                  : null,
+          'mpesaCheckoutRequestId': mpesaCheckoutRequestId,
+          'mpesaMerchantRequestId': mpesaMerchantRequestId,
           'mpesaReceiptNumber': null,
           'mpesaTransactionId': null,
         });
       } catch (e) {
-         debugPrint('Error creating transaction record: $e');
-         await AppErrorReporter.report(e, null);
+        debugPrint('Error creating transaction record: $e');
+        await AppErrorReporter.report(e, null);
+      }
+
+      if (_selectedPaymentMethod == AppConstants.paymentMethodMpesa &&
+          mpesaCheckoutRequestId != null &&
+          mpesaCheckoutRequestId.isNotEmpty) {
+        unawaited(_kickOffMpesaStatusSync(mpesaCheckoutRequestId));
       }
 
       // Clear Cart
@@ -195,6 +218,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  Future<void> _kickOffMpesaStatusSync(String checkoutRequestId) async {
+    for (var attempt = 0; attempt < 4; attempt++) {
+      await Future.delayed(Duration(seconds: attempt == 0 ? 8 : 12));
+      final result = await MpesaService.instance.queryTransactionStatus(
+        checkoutRequestId,
+      );
+      final status = (result['status'] ?? '').toString().toLowerCase();
+      if (status == AppConstants.paymentStatusCompleted ||
+          status == AppConstants.paymentStatusFailed) {
+        return;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -213,90 +250,106 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-              // 1. Delivery Details
-              const SectionHeader(title: 'Delivery Details'),
-              Container(
-                padding: const EdgeInsets.all(AppTheme.spacingM),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkCard : Colors.white,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  border: Border.all(color: AppColors.gray200),
-                ),
-                child: Column(
-                  children: [
-                    TextFormField(
-                       controller: _phoneController,
-                       keyboardType: TextInputType.phone,
-                       decoration: const InputDecoration(
-                         labelText: 'Phone Number (for MPESA payment)',
-                         prefixIcon: Icon(Icons.phone),
-                       ),
-                       validator: (v) => v!.isEmpty ? 'Required' : null,
+                  // 1. Delivery Details
+                  const SectionHeader(title: 'Delivery Details'),
+                  Container(
+                    padding: const EdgeInsets.all(AppTheme.spacingM),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkCard : Colors.white,
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
+                      border: Border.all(color: AppColors.gray200),
                     ),
-                    const SizedBox(height: AppTheme.spacingM),
-                    TextFormField(
-                       controller: _addressController,
-                       maxLines: 2,
-                       decoration: const InputDecoration(
-                         labelText: 'Delivery Address',
-                         prefixIcon: Icon(Icons.location_on),
-                       ),
-                       validator: (v) => v!.isEmpty ? 'Required' : null,
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          decoration: const InputDecoration(
+                            labelText: 'Phone Number (for MPESA payment)',
+                            prefixIcon: Icon(Icons.phone),
+                          ),
+                          validator: (v) => v!.isEmpty ? 'Required' : null,
+                        ),
+                        const SizedBox(height: AppTheme.spacingM),
+                        TextFormField(
+                          controller: _addressController,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Delivery Address',
+                            prefixIcon: Icon(Icons.location_on),
+                          ),
+                          validator: (v) => v!.isEmpty ? 'Required' : null,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppTheme.spacingL),
+                  ),
+                  const SizedBox(height: AppTheme.spacingL),
 
-              // 2. Payment Method
-              const SectionHeader(title: 'Payment Method'),
-              _buildPaymentOption('MPESA', 'M-Pesa (Mobile Money)', Icons.mobile_friendly, true),
-              const SizedBox(height: AppTheme.spacingS),
-              _buildPaymentOption('CASH', 'Cash on Delivery', Icons.money, false),
-              const SizedBox(height: AppTheme.spacingL),
+                  // 2. Payment Method
+                  const SectionHeader(title: 'Payment Method'),
+                  _buildPaymentOption(AppConstants.paymentMethodMpesa,
+                      'M-Pesa (Mobile Money)', Icons.mobile_friendly, true),
+                  const SizedBox(height: AppTheme.spacingS),
+                  _buildPaymentOption(AppConstants.paymentMethodCash,
+                      'Cash on Delivery', Icons.money, false),
+                  const SizedBox(height: AppTheme.spacingL),
 
-              // 3. Order Summary
-              const SectionHeader(title: 'Order Summary'),
-               Container(
-                padding: const EdgeInsets.all(AppTheme.spacingM),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkCard : Colors.white,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  border: Border.all(color: AppColors.gray200),
-                ),
-                 child: Column(
-                   children: [
-                     ...cart.items.take(3).map((item) => Padding(
-                       padding: const EdgeInsets.only(bottom: 8.0),
-                       child: Row(
-                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                         children: [
-                           Expanded(child: Text('${item.quantity}x ${item.productName}', overflow: TextOverflow.ellipsis)),
-                           Text(Formatters.formatCurrency(item.price * item.quantity)),
-                         ],
-                       ),
-                     )),
-                     if (cart.items.length > 3) 
-                        Text('+ ${cart.items.length - 3} more items', style: const TextStyle(color: AppColors.gray500, fontSize: 12)),
-                     const Divider(),
-                     Row(
-                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                       children: [
-                         const Text('Total to Pay', style: TextStyle(fontWeight: FontWeight.bold)),
-                         Text(Formatters.formatCurrency(cart.total), style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryIndigo, fontSize: 18)),
-                       ],
-                     ),
-                   ],
-                 ),
-               ),
-              const SizedBox(height: AppTheme.spacingXL),
+                  // 3. Order Summary
+                  const SectionHeader(title: 'Order Summary'),
+                  Container(
+                    padding: const EdgeInsets.all(AppTheme.spacingM),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkCard : Colors.white,
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMedium),
+                      border: Border.all(color: AppColors.gray200),
+                    ),
+                    child: Column(
+                      children: [
+                        ...cart.items.take(3).map((item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                      child: Text(
+                                          '${item.quantity}x ${item.productName}',
+                                          overflow: TextOverflow.ellipsis)),
+                                  Text(Formatters.formatCurrency(
+                                      item.price * item.quantity)),
+                                ],
+                              ),
+                            )),
+                        if (cart.items.length > 3)
+                          Text('+ ${cart.items.length - 3} more items',
+                              style: const TextStyle(
+                                  color: AppColors.gray500, fontSize: 12)),
+                        const Divider(),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Total to Pay',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(Formatters.formatCurrency(cart.total),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primaryIndigo,
+                                    fontSize: 18)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.spacingXL),
 
-              // Place Order
-              AuthButton(
-                text: 'Place Order',
-                onPressed: _placeOrder,
-                isLoading: _isLoading,
-              ),
+                  // Place Order
+                  AuthButton(
+                    text: 'Place Order',
+                    onPressed: _placeOrder,
+                    isLoading: _isLoading,
+                  ),
                 ],
               ),
             ),
@@ -306,44 +359,51 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildPaymentOption(String value, String label, IconData icon, bool isRecommended) {
+  Widget _buildPaymentOption(
+      String value, String label, IconData icon, bool isRecommended) {
     final isSelected = _selectedPaymentMethod == value;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return InkWell(
       onTap: () => setState(() => _selectedPaymentMethod = value),
       borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected 
-             ? AppColors.electricPurple.withValues(alpha: 0.1) 
-             : (isDark ? AppColors.darkCard : Colors.white),
+          color: isSelected
+              ? AppColors.electricPurple.withValues(alpha: 0.1)
+              : (isDark ? AppColors.darkCard : Colors.white),
           border: Border.all(
-             color: isSelected ? AppColors.electricPurple : AppColors.gray300,
-             width: isSelected ? 2 : 1,
+            color: isSelected ? AppColors.electricPurple : AppColors.gray300,
+            width: isSelected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         ),
         child: Row(
           children: [
-            Icon(icon, color: isSelected ? AppColors.electricPurple : AppColors.gray500),
+            Icon(icon,
+                color:
+                    isSelected ? AppColors.electricPurple : AppColors.gray500),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: TextStyle(
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    color: isDark ? Colors.white : Colors.black87,
-                  )),
+                  Text(label,
+                      style: TextStyle(
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isDark ? Colors.white : Colors.black87,
+                      )),
                   if (isRecommended)
-                    Text('Recommended', style: TextStyle(fontSize: 10, color: AppColors.success)),
+                    Text('Recommended',
+                        style:
+                            TextStyle(fontSize: 10, color: AppColors.success)),
                 ],
               ),
             ),
-            if (isSelected) 
-               const Icon(Icons.check_circle, color: AppColors.electricPurple),
+            if (isSelected)
+              const Icon(Icons.check_circle, color: AppColors.electricPurple),
           ],
         ),
       ),

@@ -5,7 +5,7 @@ import '../../core/theme/app_theme.dart';
 /// Premium glassmorphic text field for authentication
 class AuthTextField extends StatelessWidget {
   final TextEditingController controller;
-  final String hintText;
+  final String? hintText;
   final String labelText;
   final IconData prefixIcon;
   final IconData? suffixIcon;
@@ -20,7 +20,7 @@ class AuthTextField extends StatelessWidget {
   const AuthTextField({
     super.key,
     required this.controller,
-    required this.hintText,
+    this.hintText,
     required this.labelText,
     required this.prefixIcon,
     this.suffixIcon,
@@ -42,7 +42,7 @@ class AuthTextField extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -77,7 +77,7 @@ class AuthTextField extends StatelessWidget {
               : null,
           filled: true,
           fillColor: isDark
-              ? AppColors.darkCard.withOpacity(0.8)
+              ? AppColors.darkCard.withValues(alpha: 0.8)
               : AppColors.lightSurface,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
@@ -87,8 +87,8 @@ class AuthTextField extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             borderSide: BorderSide(
               color: isDark
-                  ? AppColors.gray700.withOpacity(0.5)
-                  : AppColors.gray300.withOpacity(0.5),
+                  ? AppColors.gray700.withValues(alpha: 0.5)
+                  : AppColors.gray300.withValues(alpha: 0.5),
             ),
           ),
           focusedBorder: OutlineInputBorder(

@@ -20,7 +20,8 @@ class ProductProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _hasMore = true;
   DocumentSnapshot? _lastDocument;
-  
+  String? _lastOperationError;
+
   String? _selectedCategory;
   String _searchQuery = '';
   double? _minPrice;
@@ -39,7 +40,8 @@ class ProductProvider extends ChangeNotifier {
 
   bool get isLoading => _isLoading;
   bool get hasMore => _hasMore;
-  
+  String? get lastOperationError => _lastOperationError;
+
   String? get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
   double? get minPrice => _minPrice;
@@ -54,7 +56,7 @@ class ProductProvider extends ChangeNotifier {
   /// Load initial products
   Future<void> loadProducts({bool refresh = false}) async {
     if (_isLoading) return;
-    
+
     if (refresh) {
       _products.clear();
       _filteredProducts.clear();
@@ -110,9 +112,8 @@ class ProductProvider extends ChangeNotifier {
     try {
       final snapshot = await _productService.getFeaturedProducts(limit: 10);
 
-      _featuredProducts = snapshot.docs
-          .map((doc) => ProductModel.fromFirestore(doc))
-          .toList();
+      _featuredProducts =
+          snapshot.docs.map((doc) => ProductModel.fromFirestore(doc)).toList();
 
       notifyListeners();
     } catch (e) {
@@ -130,9 +131,8 @@ class ProductProvider extends ChangeNotifier {
         limit: 50, // More for category view
       );
 
-      _products = snapshot.docs
-          .map((doc) => ProductModel.fromFirestore(doc))
-          .toList();
+      _products =
+          snapshot.docs.map((doc) => ProductModel.fromFirestore(doc)).toList();
 
       _applyFilters();
     } catch (e) {
@@ -145,7 +145,8 @@ class ProductProvider extends ChangeNotifier {
   /// Load related products
   Future<void> loadRelatedProducts(String category, String excludeId) async {
     try {
-      _relatedProducts = await _productService.getRelatedProducts(category, excludeId);
+      _relatedProducts =
+          await _productService.getRelatedProducts(category, excludeId);
 
       notifyListeners();
     } catch (e) {
@@ -160,7 +161,9 @@ class ProductProvider extends ChangeNotifier {
         _recentlyViewedIds.removeLast();
       }
       _recentlyViewedIdsSet = _recentlyViewedIds.toSet();
-      _recentlyViewedProducts = _products.where((p) => _recentlyViewedIdsSet.contains(p.productId)).toList();
+      _recentlyViewedProducts = _products
+          .where((p) => _recentlyViewedIdsSet.contains(p.productId))
+          .toList();
       notifyListeners();
     }
   }
@@ -185,8 +188,8 @@ class ProductProvider extends ChangeNotifier {
   /// Clear selected product
   /// Clear selected product
   void clearSelectedProduct() {
-     _selectedProduct = null;
-     notifyListeners();
+    _selectedProduct = null;
+    notifyListeners();
   }
 
   // ==================== SEARCH & FILTER ====================
@@ -233,9 +236,11 @@ class ProductProvider extends ChangeNotifier {
       // Search query
       if (_searchQuery.isNotEmpty) {
         final matchesName = product.name.toLowerCase().contains(_searchQuery);
-        final matchesDescription = product.description.toLowerCase().contains(_searchQuery);
-        final matchesCategory = product.category.toLowerCase().contains(_searchQuery);
-        
+        final matchesDescription =
+            product.description.toLowerCase().contains(_searchQuery);
+        final matchesCategory =
+            product.category.toLowerCase().contains(_searchQuery);
+
         if (!matchesName && !matchesDescription && !matchesCategory) {
           return false;
         }
@@ -292,7 +297,8 @@ class ProductProvider extends ChangeNotifier {
         _filteredProducts.sort((a, b) => b.price.compareTo(a.price));
         break;
       case 'rating':
-        _filteredProducts.sort((a, b) => b.averageRating.compareTo(a.averageRating));
+        _filteredProducts
+            .sort((a, b) => b.averageRating.compareTo(a.averageRating));
         break;
       case 'newest':
         _filteredProducts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -306,6 +312,7 @@ class ProductProvider extends ChangeNotifier {
 
   /// Add new product (admin only)
   Future<bool> addProduct(ProductModel product) async {
+    _lastOperationError = null;
     try {
       await _productService.addProduct(product.toMap());
 
@@ -313,6 +320,7 @@ class ProductProvider extends ChangeNotifier {
       await loadProducts(refresh: true);
       return true;
     } catch (e) {
+      _lastOperationError = e.toString().replaceFirst('Exception: ', '');
       debugPrint('Error adding product: $e');
       return false;
     }
@@ -320,6 +328,7 @@ class ProductProvider extends ChangeNotifier {
 
   /// Update product (admin only)
   Future<bool> updateProduct(ProductModel product) async {
+    _lastOperationError = null;
     try {
       await _productService.updateProduct(
         product.productId,
@@ -327,7 +336,8 @@ class ProductProvider extends ChangeNotifier {
       );
 
       // Update in local list
-      final index = _products.indexWhere((p) => p.productId == product.productId);
+      final index =
+          _products.indexWhere((p) => p.productId == product.productId);
       if (index != -1) {
         _products[index] = product;
         _applyFilters();
@@ -335,6 +345,7 @@ class ProductProvider extends ChangeNotifier {
 
       return true;
     } catch (e) {
+      _lastOperationError = e.toString().replaceFirst('Exception: ', '');
       debugPrint('Error updating product: $e');
       return false;
     }
@@ -342,6 +353,7 @@ class ProductProvider extends ChangeNotifier {
 
   /// Delete product (admin only)
   Future<bool> deleteProduct(String productId) async {
+    _lastOperationError = null;
     try {
       await _productService.deleteProduct(productId);
 
@@ -351,6 +363,7 @@ class ProductProvider extends ChangeNotifier {
 
       return true;
     } catch (e) {
+      _lastOperationError = e.toString().replaceFirst('Exception: ', '');
       debugPrint('Error deleting product: $e');
       return false;
     }
@@ -358,6 +371,7 @@ class ProductProvider extends ChangeNotifier {
 
   /// Update product stock (employee/admin)
   Future<bool> updateStock(String productId, int newStock) async {
+    _lastOperationError = null;
     try {
       await _productService.updateStock(productId, newStock);
 
@@ -370,6 +384,7 @@ class ProductProvider extends ChangeNotifier {
 
       return true;
     } catch (e) {
+      _lastOperationError = e.toString().replaceFirst('Exception: ', '');
       debugPrint('Error updating stock: $e');
       return false;
     }

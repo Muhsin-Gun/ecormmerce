@@ -59,11 +59,27 @@ class _HomeTabState extends State<HomeTab> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isWebLike = screenWidth >= 900;
     final gridCrossAxisCount = isWebLike ? 4 : (screenWidth >= 600 ? 3 : 2);
-    final gridAspectRatio = isWebLike ? 0.78 : (screenWidth >= 600 ? 0.76 : 0.72);
+    final gridAspectRatio =
+        isWebLike ? 0.8 : (screenWidth >= 600 ? 0.74 : 0.66);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ProMarket'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset(
+                'assets/icons/foreground.png',
+                width: 24,
+                height: 24,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text('ProMarket'),
+          ],
+        ),
         centerTitle: false,
         actions: [
           IconButton(
@@ -304,8 +320,8 @@ class _HomeTabState extends State<HomeTab> {
                         return ProductCard(
                           product: product,
                           heroTagSuffix: '_grid_$index',
-                          onTap: () => _openPage(
-                              ProductDetailsScreen(product: product)),
+                          onTap: () =>
+                              _openPage(ProductDetailsScreen(product: product)),
                           onAddToCart: () {
                             context.read<CartProvider>().addItem(product);
                             final messenger = ScaffoldMessenger.of(context);
@@ -353,7 +369,8 @@ class _HomeTabState extends State<HomeTab> {
                       (1200 * MediaQuery.of(context).devicePixelRatio).round(),
                   errorWidget: Container(
                     color: Colors.grey.shade300,
-                    child: const Center(child: Icon(Icons.broken_image_outlined)),
+                    child:
+                        const Center(child: Icon(Icons.broken_image_outlined)),
                   ),
                 )
               else

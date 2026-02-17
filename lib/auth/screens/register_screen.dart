@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/constants.dart';
@@ -8,7 +10,7 @@ import '../../core/utils/validators.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
-import 'email_otp_verification_screen.dart';
+import 'email_verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -50,52 +52,74 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
 
-    final success = await authProvider.register(
-      email: email,
-      password: password,
-      name: name,
-      phone: phone,
-      role: AppConstants.roleClient,
-    );
-
-    if (success && mounted) {
-      await authProvider.signOut();
-      if (!mounted) return;
-
-      final otpSent = await authProvider.sendOTPtoEmail(
+    try {
+      final registrationResult = await authProvider.register(
         email: email,
-        userName: name,
+        password: password,
+        name: name,
+        phone: phone,
+        role: AppConstants.roleClient,
       );
+
       if (!mounted) return;
 
-      if (otpSent) {
-        AppFeedback.success(
-          context,
-          'Verification email sent to $email. Didn\'t receive it? Resend.',
-        );
-      } else {
+      // Registration failed - show error
+      if (registrationResult == null) {
+        final error = authProvider.errorMessage ?? '';
+
+        // Check if email is already registered
+        final isAlreadyRegistered =
+            error.toLowerCase().contains('already registered');
+
+        if (isAlreadyRegistered) {
+          AppFeedback.info(
+            context,
+            'This email is already registered. Sign in with your password or reset it if you forgot.',
+          );
+          // Return to the root auth flow so AuthWrapper controls routing.
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          return;
+        }
+
+        // Show other registration errors
         AppFeedback.error(
           context,
-          authProvider.errorMessage ??
-              'Could not send OTP automatically. Request another code.',
-          nextStep: 'Use Resend code on the next screen.',
+          error.isEmpty
+              ? 'Unable to create your account. Please try again.'
+              : error,
         );
+        return;
       }
+
+      // Registration successful - show the verification screen
+      AppFeedback.success(
+        context,
+        'Verification email sent. Verify your email to finish creating your account.',
+      );
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => EmailOTPVerificationScreen(
-            email: email,
-            userName: name,
-            initialCodeSent: otpSent,
+          builder: (context) => EmailVerificationScreen(
+            initialEmailSent: true,
+            pendingEmail: email,
+            pendingName: name,
+            pendingPhone: phone,
+            pendingRole: AppConstants.roleClient,
           ),
         ),
       );
-    } else if (mounted && authProvider.errorMessage != null) {
+    } on TimeoutException {
+      if (!mounted) return;
       AppFeedback.error(
         context,
-        authProvider.errorMessage!,
-        nextStep: 'Check your details and try again.',
+        'Sign up took too long. Check your internet connection and try again.',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppFeedback.error(
+        context,
+        e,
+        fallbackMessage: 'Unable to create account. Please try again.',
       );
     }
   }
@@ -145,7 +169,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           AuthTextField(
             controller: _nameController,
             labelText: 'Full Name',
-            hintText: 'John Doe',
             prefixIcon: Icons.person_outline,
             validator: (value) => Validators.validateName(value),
           ),
@@ -153,7 +176,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           AuthTextField(
             controller: _emailController,
             labelText: 'Email Address',
-            hintText: 'john@example.com',
             prefixIcon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
             validator: Validators.validateEmail,
@@ -162,7 +184,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           AuthTextField(
             controller: _phoneController,
             labelText: 'Phone Number',
-            hintText: '0712 345 678',
             prefixIcon: Icons.phone_outlined,
             keyboardType: TextInputType.phone,
             validator: Validators.validatePhone,
@@ -179,7 +200,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           AuthTextField(
             controller: _passwordController,
             labelText: 'Password',
-            hintText: 'Min 8 chars, 1 uppercase, 1 number',
             prefixIcon: Icons.lock_outlined,
             obscureText: _obscurePassword,
             suffixIcon: _obscurePassword
@@ -193,7 +213,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           AuthTextField(
             controller: _confirmPasswordController,
             labelText: 'Confirm Password',
-            hintText: 'Re-enter your password',
             prefixIcon: Icons.lock_outline,
             obscureText: _obscureConfirmPassword,
             suffixIcon: _obscureConfirmPassword
@@ -202,8 +221,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             onSuffixIconPressed: () => setState(
               () => _obscureConfirmPassword = !_obscureConfirmPassword,
             ),
-            validator: (value) =>
-                Validators.validatePasswordConfirmation(value, _passwordController.text),
+            validator: (value) => Validators.validatePasswordConfirmation(
+                value, _passwordController.text),
           ),
           const SizedBox(height: AppTheme.spacingXL),
           Consumer<AuthProvider>(

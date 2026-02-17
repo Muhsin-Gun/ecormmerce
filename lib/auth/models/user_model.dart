@@ -15,12 +15,12 @@ class UserModel extends Equatable {
   final bool emailVerified;
   final DateTime createdAt;
   final DateTime updatedAt;
-  
+
   // Preferences
   final bool darkMode;
   final bool notificationsEnabled;
   final bool isRoot;
-  
+
   // Optional fields
   final List<AddressData>? addresses;
   final Map<String, dynamic>? preferences;
@@ -36,7 +36,7 @@ class UserModel extends Equatable {
     this.emailVerified = false,
     required this.createdAt,
     required this.updatedAt,
-    this.darkMode = true, 
+    this.darkMode = false,
     this.notificationsEnabled = true,
     this.isRoot = false,
     this.addresses,
@@ -48,7 +48,7 @@ class UserModel extends Equatable {
   /// Creates UserModel from Firestore document
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    
+
     return UserModel(
       userId: doc.id,
       email: data['email'] ?? '',
@@ -60,7 +60,7 @@ class UserModel extends Equatable {
       emailVerified: data['emailVerified'] ?? false,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      darkMode: data['darkMode'] ?? true,
+      darkMode: data['darkMode'] ?? false,
       notificationsEnabled: data['notificationsEnabled'] ?? true,
       isRoot: data['isRoot'] ?? false,
       addresses: data['addresses'] != null
@@ -85,11 +85,13 @@ class UserModel extends Equatable {
       emailVerified: map['emailVerified'] ?? false,
       createdAt: map['createdAt'] is Timestamp
           ? (map['createdAt'] as Timestamp).toDate()
-          : DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
+          : DateTime.parse(
+              map['createdAt'] ?? DateTime.now().toIso8601String()),
       updatedAt: map['updatedAt'] is Timestamp
           ? (map['updatedAt'] as Timestamp).toDate()
-          : DateTime.parse(map['updatedAt'] ?? DateTime.now().toIso8601String()),
-      darkMode: map['darkMode'] ?? true,
+          : DateTime.parse(
+              map['updatedAt'] ?? DateTime.now().toIso8601String()),
+      darkMode: map['darkMode'] ?? false,
       notificationsEnabled: map['notificationsEnabled'] ?? true,
       isRoot: map['isRoot'] ?? false,
       addresses: map['addresses'] != null
@@ -167,7 +169,7 @@ class UserModel extends Equatable {
   bool get isClient => role == AppConstants.roleClient;
   bool get isEmployee => role == AppConstants.roleEmployee;
   bool get isAdmin => role == AppConstants.roleAdmin;
-  
+
   bool get isApproved => roleStatus == AppConstants.roleStatusApproved;
   bool get isPending => roleStatus == AppConstants.roleStatusPending;
   bool get isSuspended => roleStatus == AppConstants.roleStatusSuspended;
@@ -262,8 +264,9 @@ class AddressData extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, label, street, city, postalCode, country, isDefault];
-  
+  List<Object?> get props =>
+      [id, label, street, city, postalCode, country, isDefault];
+
   // UI alias
   String get streetAddress => street;
 }

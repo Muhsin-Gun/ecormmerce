@@ -8,6 +8,7 @@ import '../../employee/screens/employee_dashboard_screen.dart';
 import '../../shared/widgets/first_run_permissions_gate.dart';
 import '../../user/screens/user_main_screen.dart';
 import '../providers/auth_provider.dart';
+import '../screens/email_verification_screen.dart';
 import '../screens/login_screen.dart';
 
 class AuthWrapper extends StatelessWidget {
@@ -20,6 +21,13 @@ class AuthWrapper extends StatelessWidget {
     final userModel = auth.userModel;
 
     if (firebaseUser == null) return const LoginScreen();
+
+    final firebaseVerified = firebaseUser.emailVerified;
+    if (!firebaseVerified && (userModel == null || !userModel.emailVerified)) {
+      return EmailVerificationScreen(
+        pendingEmail: firebaseUser.email,
+      );
+    }
 
     if (auth.isLoading && userModel == null) {
       return const Scaffold(
@@ -57,49 +65,7 @@ class AuthWrapper extends StatelessWidget {
     }
 
     if (!userModel.emailVerified) {
-      Future.microtask(() => auth.signOut());
-      return Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.mark_email_unread_outlined,
-                  size: 72,
-                  color: AppColors.warning,
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Email verification required',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Verification email sent to ${userModel.email}. Didn\'t receive it? Resend from login.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                OutlinedButton(
-                  onPressed: () => auth.signOut(),
-                  child: const Text('Back to Login'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+      return const EmailVerificationScreen();
     }
 
     if (userModel.role == AppConstants.roleAdmin &&

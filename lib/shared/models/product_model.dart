@@ -14,7 +14,7 @@ class ProductModel extends Equatable {
   // Optional sale fields
   final bool isOnSale;
   final double? salePrice;
-  
+
   // Extra fields to prevent breakage if other files use them (e.g. fromFirestore might need them)
   final bool isActive;
   final DateTime createdAt;
@@ -53,8 +53,8 @@ class ProductModel extends Equatable {
     if (!isOnSale || salePrice == null || salePrice! >= price) return null;
     return ((price - salePrice!) / price) * 100;
   }
-  
-  String get mainImage => imageUrl ?? (images.isNotEmpty ? images.first : '') ?? '';
+
+  String get mainImage => imageUrl ?? (images.isNotEmpty ? images.first : '');
 
   int get stockQuantity => stock;
 
@@ -63,12 +63,14 @@ class ProductModel extends Equatable {
   // Factory for Firestore
   factory ProductModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
-    
+
     // Handle null timestamps
     DateTime getTimestamp(dynamic timestamp) {
       if (timestamp == null) return DateTime.now();
       if (timestamp is Timestamp) return timestamp.toDate();
-      if (timestamp is String) return DateTime.tryParse(timestamp) ?? DateTime.now();
+      if (timestamp is String) {
+        return DateTime.tryParse(timestamp) ?? DateTime.now();
+      }
       return DateTime.now();
     }
 
@@ -86,31 +88,36 @@ class ProductModel extends Equatable {
       price: (data['price'] is num) ? (data['price'] as num).toDouble() : 0.0,
       stock: (data['stock'] is int) ? data['stock'] as int : 0,
       category: data['category']?.toString() ?? 'Uncategorized',
-      imageUrl: data['imageUrl']?.toString() ?? (data['images'] != null && (data['images'] as List).isNotEmpty ? data['images'][0]?.toString() : null),
+      imageUrl: data['imageUrl']?.toString() ??
+          (data['images'] != null && (data['images'] as List).isNotEmpty
+              ? data['images'][0]?.toString()
+              : null),
       brand: data['brand']?.toString(),
       isOnSale: data['isOnSale'] == true,
-      salePrice: (data['salePrice'] is num) ? (data['salePrice'] as num).toDouble() : null,
+      salePrice: (data['salePrice'] is num)
+          ? (data['salePrice'] as num).toDouble()
+          : null,
       isActive: data['isActive'] != false, // Default to true if missing
       createdAt: getTimestamp(data['createdAt']),
       updatedAt: getTimestamp(data['updatedAt']),
-      averageRating: (data['averageRating'] is num) ? (data['averageRating'] as num).toDouble() : 0.0,
-      reviewCount: (data['reviewCount'] is int) ? data['reviewCount'] as int : 0,
+      averageRating: (data['averageRating'] is num)
+          ? (data['averageRating'] as num).toDouble()
+          : 0.0,
+      reviewCount:
+          (data['reviewCount'] is int) ? data['reviewCount'] as int : 0,
       images: getImages(data['images']),
     );
   }
 
   // toMap
   Map<String, dynamic> toMap() {
-    return {
+    final map = <String, dynamic>{
       'name': name,
       'description': description,
       'price': price,
       'stock': stock,
       'category': category,
-      'imageUrl': imageUrl,
-      'brand': brand,
       'isOnSale': isOnSale,
-      'salePrice': salePrice,
       'isActive': isActive,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
@@ -118,6 +125,22 @@ class ProductModel extends Equatable {
       'reviewCount': reviewCount,
       'images': images,
     };
+
+    final normalizedImage = imageUrl?.trim();
+    if (normalizedImage != null && normalizedImage.isNotEmpty) {
+      map['imageUrl'] = normalizedImage;
+    }
+
+    final normalizedBrand = brand?.trim();
+    if (normalizedBrand != null && normalizedBrand.isNotEmpty) {
+      map['brand'] = normalizedBrand;
+    }
+
+    if (salePrice != null) {
+      map['salePrice'] = salePrice;
+    }
+
+    return map;
   }
 
   ProductModel copyWith({
@@ -159,5 +182,15 @@ class ProductModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [productId, name, description, price, stock, category, imageUrl, createdAt, updatedAt];
+  List<Object?> get props => [
+        productId,
+        name,
+        description,
+        price,
+        stock,
+        category,
+        imageUrl,
+        createdAt,
+        updatedAt
+      ];
 }

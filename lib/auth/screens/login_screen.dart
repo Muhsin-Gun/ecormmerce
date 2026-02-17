@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -11,7 +11,6 @@ import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
-import 'email_otp_verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,13 +19,14 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isGoogleLoading = false;
   String? _oauthInlineError;
-  
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -38,16 +38,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       vsync: this,
       duration: AppTheme.slow,
     );
-    
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
-    
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
-    
+    ).animate(
+        CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
+
     _animationController.forward();
   }
 
@@ -61,16 +62,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     FocusScope.of(context).unfocus();
-    
+
     final authProvider = context.read<AuthProvider>();
     final email = _emailController.text.trim();
     final success = await authProvider.login(
       email: email,
       password: _passwordController.text,
     );
-    
+
     if (success && mounted) {
       AppFeedback.success(context, 'Welcome back!');
       return;
@@ -78,30 +79,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     if (!mounted) return;
 
-    final pendingEmail = authProvider.pendingVerificationEmail;
-    if (pendingEmail != null && pendingEmail.isNotEmpty) {
-      final pendingName = authProvider.pendingVerificationName ?? '';
-      bool otpSent = false;
-      try {
-        otpSent = await authProvider
-            .sendOTPtoEmail(
-              email: pendingEmail,
-              userName: pendingName,
-            )
-            .timeout(const Duration(seconds: 12));
-      } on TimeoutException {
-        otpSent = false;
-      }
-      if (!mounted) return;
-
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => EmailOTPVerificationScreen(
-            email: pendingEmail,
-            userName: pendingName,
-            initialCodeSent: otpSent,
-          ),
-        ),
+    if (authProvider.pendingVerificationEmail != null) {
+      AppFeedback.error(
+        context,
+        authProvider.errorMessage ?? 'Email not verified yet.',
+        nextStep:
+            'Check your email inbox/spam, open the verification link, then sign in again.',
       );
       return;
     }
@@ -126,23 +109,31 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     try {
       if (useAnotherAccount) {
-        await auth.logVerificationEvent(
-          eventName: 'oauth_switch_account',
-          email: _emailController.text.trim().isEmpty
-              ? 'unknown@example.com'
-              : _emailController.text.trim(),
-        );
         await auth.prepareGoogleAccountSwitch();
       }
 
-      final success = await auth
-          .signInWithGoogle(
-            forceAccountChooser: useAnotherAccount,
-          )
-          .timeout(const Duration(seconds: 20));
+      final success = await auth.signInWithGoogle(
+        forceAccountChooser: useAnotherAccount,
+      );
       if (!mounted) return;
 
-      if (success) {
+      var resolvedSuccess = success || auth.firebaseUser != null;
+      if (!resolvedSuccess) {
+        for (var attempt = 0; attempt < 12; attempt++) {
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+          if (!mounted) return;
+          if (auth.firebaseUser != null) {
+            resolvedSuccess = true;
+            break;
+          }
+        }
+      }
+      if (resolvedSuccess) {
+        if (_oauthInlineError != null) {
+          setState(() {
+            _oauthInlineError = null;
+          });
+        }
         AppFeedback.success(context, 'Welcome! Signed in with Google');
       } else {
         final msg = auth.errorMessage ??
@@ -160,6 +151,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       }
     } on TimeoutException {
       if (!mounted) return;
+      if (auth.firebaseUser != null) {
+        if (_oauthInlineError != null) {
+          setState(() {
+            _oauthInlineError = null;
+          });
+        }
+        AppFeedback.success(context, 'Welcome! Signed in with Google');
+        return;
+      }
       setState(() {
         _oauthInlineError =
             'Google sign-in is taking too long. Please check your connection and try again.';
@@ -167,6 +167,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       AppFeedback.error(context, _oauthInlineError!);
     } catch (e) {
       if (!mounted) return;
+      if (auth.firebaseUser != null) {
+        if (_oauthInlineError != null) {
+          setState(() {
+            _oauthInlineError = null;
+          });
+        }
+        AppFeedback.success(context, 'Welcome! Signed in with Google');
+        return;
+      }
       setState(() {
         _oauthInlineError = AppFeedback.friendlyError(e);
       });
@@ -183,6 +192,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -193,13 +203,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       body: Container(
         height: size.height,
         width: double.infinity,
-        decoration: isDark ? const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.darkNavy, Colors.black],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ) : null,
+        decoration: isDark
+            ? const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.darkNavy, Colors.black],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              )
+            : null,
         child: SafeArea(
           child: Center(
             child: ConstrainedBox(
@@ -217,7 +229,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         Container(
                           padding: const EdgeInsets.all(AppTheme.spacingM),
                           decoration: BoxDecoration(
-                            color: AppColors.electricPurple.withValues(alpha: 0.1),
+                            color:
+                                AppColors.electricPurple.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -227,7 +240,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           ),
                         ),
                         const SizedBox(height: AppTheme.spacingL),
-                        
+
                         // Welcome Text
                         Text(
                           'Welcome Back',
@@ -239,11 +252,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         Text(
                           'Sign in to your account',
                           style: theme.textTheme.bodyLarge?.copyWith(
-                            color: isDark ? AppColors.gray400 : AppColors.gray600,
+                            color:
+                                isDark ? AppColors.gray400 : AppColors.gray600,
                           ),
                         ),
                         const SizedBox(height: AppTheme.spacingXL),
-                        
+
                         // Form
                         Form(
                           key: _formKey,
@@ -265,13 +279,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 prefixIcon: Icons.lock_outlined,
                                 obscureText: true,
                                 textInputAction: TextInputAction.done,
-                                validator: (value) => Validators.validateRequired(
-                                  value, 
-                                  fieldName: 'Password'
-                                ),
+                                validator: (value) =>
+                                    Validators.validateRequired(value,
+                                        fieldName: 'Password'),
                                 onFieldSubmitted: (_) => _login(),
                               ),
-                              
+
                               // Forgot Password
                               Align(
                                 alignment: Alignment.centerRight,
@@ -280,16 +293,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => const ForgotPasswordScreen(),
+                                        builder: (context) =>
+                                            const ForgotPasswordScreen(),
                                       ),
                                     );
                                   },
                                   child: const Text('Forgot Password?'),
                                 ),
                               ),
-                              
+
                               const SizedBox(height: AppTheme.spacingL),
-                              
+
                               // Login Button
                               Consumer<AuthProvider>(
                                 builder: (context, auth, _) {
@@ -300,57 +314,74 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                         onPressed: _login,
                                         isLoading: auth.isLoading,
                                       ),
-                                      
+
                                       const SizedBox(height: AppTheme.spacingL),
-                                      
+
                                       // Divider with "Or"
                                       Row(
                                         children: [
                                           Expanded(
                                             child: Divider(
-                                              color: isDark ? AppColors.gray600 : AppColors.gray300,
+                                              color: isDark
+                                                  ? AppColors.gray600
+                                                  : AppColors.gray300,
                                             ),
                                           ),
                                           Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingM),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: AppTheme.spacingM),
                                             child: Text(
                                               'Or continue with',
-                                              style: theme.textTheme.bodySmall?.copyWith(
-                                                color: isDark ? AppColors.gray500 : AppColors.gray600,
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                color: isDark
+                                                    ? AppColors.gray500
+                                                    : AppColors.gray600,
                                               ),
                                             ),
                                           ),
                                           Expanded(
                                             child: Divider(
-                                              color: isDark ? AppColors.gray600 : AppColors.gray300,
+                                              color: isDark
+                                                  ? AppColors.gray600
+                                                  : AppColors.gray300,
                                             ),
                                           ),
                                         ],
                                       ),
-                                      
+
                                       const SizedBox(height: AppTheme.spacingL),
-                                      
-                                       // Google Sign-In Button (Standard Design)
-                                       SizedBox(
-                                         width: double.infinity,
-                                         height: 56,
-                                         child: OutlinedButton(
-                                          onPressed: (auth.isLoading || _isGoogleLoading)
+
+                                      // Google Sign-In Button (Standard Design)
+                                      SizedBox(
+                                        width: double.infinity,
+                                        height: 56,
+                                        child: OutlinedButton(
+                                          onPressed: (auth.isLoading ||
+                                                  _isGoogleLoading)
                                               ? null
                                               : _signInWithGoogle,
                                           style: OutlinedButton.styleFrom(
-                                            backgroundColor: isDark ? AppColors.darkCard : Colors.white,
+                                            backgroundColor: isDark
+                                                ? AppColors.darkCard
+                                                : Colors.white,
                                             side: BorderSide(
-                                              color: isDark ? AppColors.gray600 : AppColors.gray300,
+                                              color: isDark
+                                                  ? AppColors.gray600
+                                                  : AppColors.gray300,
                                               width: 1.5,
                                             ),
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                      AppTheme.radiusMedium),
                                             ),
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 16, vertical: 12),
                                           ),
                                           child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
                                             children: [
                                               // Google Icon (Simple)
                                               Container(
@@ -358,12 +389,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                                 height: 20,
                                                 decoration: BoxDecoration(
                                                   color: Colors.white,
-                                                  borderRadius: BorderRadius.circular(2),
+                                                  borderRadius:
+                                                      BorderRadius.circular(2),
                                                   boxShadow: [
                                                     BoxShadow(
-                                                      color: Colors.black.withValues(alpha: 0.1),
+                                                      color: Colors.black
+                                                          .withValues(
+                                                              alpha: 0.1),
                                                       blurRadius: 2,
-                                                      offset: const Offset(0, 1),
+                                                      offset:
+                                                          const Offset(0, 1),
                                                     ),
                                                   ],
                                                 ),
@@ -373,8 +408,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                                     style: TextStyle(
                                                       color: Color(0xFF4285F4),
                                                       fontSize: 14,
-                                                      fontWeight: FontWeight.bold,
-                                                      fontFamily: 'Product Sans',
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontFamily:
+                                                          'Product Sans',
                                                     ),
                                                   ),
                                                 ),
@@ -382,31 +419,41 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                               const SizedBox(width: 12),
                                               Text(
                                                 'Google',
-                                                style: theme.textTheme.titleSmall?.copyWith(
+                                                style: theme
+                                                    .textTheme.titleSmall
+                                                    ?.copyWith(
                                                   fontWeight: FontWeight.w500,
-                                                  color: isDark ? Colors.white : AppColors.gray700,
+                                                  color: isDark
+                                                      ? Colors.white
+                                                      : AppColors.gray700,
                                                 ),
                                               ),
                                             ],
                                           ),
                                         ),
-                                       ),
+                                      ),
                                       const SizedBox(height: AppTheme.spacingM),
                                       if (_oauthInlineError != null)
                                         Container(
                                           width: double.infinity,
-                                          padding: const EdgeInsets.all(AppTheme.spacingM),
+                                          padding: const EdgeInsets.all(
+                                              AppTheme.spacingM),
                                           decoration: BoxDecoration(
-                                            color: AppColors.error.withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(color: AppColors.error),
+                                            color: AppColors.error
+                                                .withValues(alpha: 0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            border: Border.all(
+                                                color: AppColors.error),
                                           ),
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 _oauthInlineError!,
-                                                style: theme.textTheme.bodySmall?.copyWith(
+                                                style: theme.textTheme.bodySmall
+                                                    ?.copyWith(
                                                   color: AppColors.error,
                                                   fontWeight: FontWeight.w600,
                                                 ),
@@ -425,8 +472,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                                     onPressed: _isGoogleLoading
                                                         ? null
                                                         : () => _signInWithGoogle(
-                                                            useAnotherAccount: true),
-                                                    child: const Text('Sign in with another account'),
+                                                            useAnotherAccount:
+                                                                true),
+                                                    child: const Text(
+                                                        'Sign in with another account'),
                                                   ),
                                                 ],
                                               ),
@@ -440,7 +489,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                               : () => _signInWithGoogle(
                                                     useAnotherAccount: true,
                                                   ),
-                                          child: const Text('Sign in with another account'),
+                                          child: const Text(
+                                              'Sign in with another account'),
                                         ),
                                     ],
                                   );
@@ -449,9 +499,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             ],
                           ),
                         ),
-                        
+
                         const SizedBox(height: AppTheme.spacingXL),
-                        
+
                         // Register Link
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -459,7 +509,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             Text(
                               "Don't have an account? ",
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: isDark ? AppColors.gray400 : AppColors.gray600,
+                                color: isDark
+                                    ? AppColors.gray400
+                                    : AppColors.gray600,
                               ),
                             ),
                             GestureDetector(
@@ -467,7 +519,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const RegisterScreen(),
+                                    builder: (context) =>
+                                        const RegisterScreen(),
                                   ),
                                 );
                               },

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:image_picker/image_picker.dart';
@@ -77,7 +78,11 @@ class _ChatScreenState extends State<ChatScreen> {
     if (user == null) return;
 
     try {
-      final file = await _imagePicker.pickImage(source: source, imageQuality: 75);
+      final file = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 75,
+        preferredCameraDevice: CameraDevice.rear,
+      );
       if (file == null) return;
 
       setState(() => _isUploadingImage = true);
@@ -92,6 +97,15 @@ class _ChatScreenState extends State<ChatScreen> {
             imageUrl: imageUrl,
           );
       _scrollToBottom();
+    } on PlatformException catch (e) {
+      if (mounted) {
+        AppFeedback.error(
+          context,
+          e.message ?? e.code,
+          fallbackMessage: 'Camera access failed.',
+          nextStep: 'Allow camera permission and try again.',
+        );
+      }
     } catch (e) {
       if (mounted) {
         AppFeedback.error(

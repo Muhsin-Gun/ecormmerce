@@ -153,6 +153,10 @@ class _ReportsBody extends StatelessWidget {
             child: LineChart(
               LineChartData(
                 minY: 0,
+                minX: 0,
+                maxX: report.monthlyRevenue.isEmpty
+                    ? 0
+                    : (report.monthlyRevenue.length - 1).toDouble(),
                 gridData: FlGridData(
                   drawVerticalLine: false,
                   horizontalInterval: _safeInterval(report.monthlyRevenue),
@@ -178,14 +182,30 @@ class _ReportsBody extends StatelessWidget {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      getTitlesWidget: (value, _) {
-                        final i = value.toInt();
+                      reservedSize: 34,
+                      interval: 1,
+                      getTitlesWidget: (value, meta) {
+                        final rounded = value.round();
+                        if ((value - rounded).abs() > 0.001) {
+                          return const SizedBox.shrink();
+                        }
+                        final i = rounded;
                         if (i < 0 || i >= report.monthLabels.length) {
                           return const SizedBox.shrink();
                         }
-                        return Text(
-                          report.monthLabels[i],
-                          style: const TextStyle(fontSize: 10),
+                        final showEvery = report.monthLabels.length > 10 ? 2 : 1;
+                        final isLast = i == report.monthLabels.length - 1;
+                        if (!isLast && i % showEvery != 0) {
+                          return const SizedBox.shrink();
+                        }
+                        return SideTitleWidget(
+                          axisSide: meta.axisSide,
+                          space: 6,
+                          angle: -0.35,
+                          child: Text(
+                            report.monthLabels[i],
+                            style: const TextStyle(fontSize: 10),
+                          ),
                         );
                       },
                     ),
@@ -677,19 +697,6 @@ class _ReportSnapshot {
       if (bucketIndex < 0) bucketIndex = 0;
       if (bucketIndex >= bucketCount) bucketIndex = bucketCount - 1;
       monthlyRevenue[bucketIndex] += total / 1000;
-    }
-
-    for (var i = 0; i < bucketCount; i++) {
-      final start = monthStarts[i];
-      final end = i == bucketCount - 1
-          ? now
-          : monthStarts[i + 1].subtract(const Duration(days: 1));
-      if (start.month == end.month) {
-        monthLabels[i] = DateFormat('MMM d').format(start);
-      } else {
-        monthLabels[i] =
-            '${DateFormat('MMM d').format(start)} - ${DateFormat('MMM d').format(end)}';
-      }
     }
 
     int outOfStock = 0;

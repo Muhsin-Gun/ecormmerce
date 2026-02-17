@@ -5,16 +5,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
-import '../services/email_verification_service.dart';
 import '../models/user_model.dart';
 import '../../core/constants/constants.dart';
 import '../../core/constants/google_sign_in_ids.dart';
 import '../../core/utils/app_feedback.dart';
 
 class AuthProvider extends ChangeNotifier {
+  static const Duration _registerTimeout = Duration(seconds: 45);
+
   final AuthService _authService = AuthService();
-  final EmailVerificationService _emailVerificationService =
-      EmailVerificationService();
   StreamSubscription<User?>? _authStateSubscription;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
       _userDocSubscription;
@@ -24,9 +23,9 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
   String? _pendingVerificationEmail;
   String? _pendingVerificationName;
-  int _otpCooldownSeconds = 30;
-  int _otpRemainingResends = 3;
-  bool _otpResendCapReached = false;
+  String? _pendingSignupName;
+  String? _pendingSignupPhone;
+  String? _pendingSignupRole;
   bool _isInitialized = false;
 
   UserModel? get userModel => _userModel;
@@ -35,9 +34,6 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String? get pendingVerificationEmail => _pendingVerificationEmail;
   String? get pendingVerificationName => _pendingVerificationName;
-  int get otpCooldownSeconds => _otpCooldownSeconds;
-  int get otpRemainingResends => _otpRemainingResends;
-  bool get otpResendCapReached => _otpResendCapReached;
   bool get isAuthenticated => FirebaseAuth.instance.currentUser != null;
   bool get isInitialized => _isInitialized;
 
@@ -70,10 +66,18 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> login({required String email, required String password}) async {
     _setLoading(true);
     _clearError();
+    _pendingVerificationEmail = null;
+    _pendingVerificationName = null;
+    _pendingSignupName = null;
+    _pendingSignupPhone = null;
+    _pendingSignupRole = null;
     try {
       _userModel = await _authService.login(email, password);
       _pendingVerificationEmail = null;
       _pendingVerificationName = null;
+      _pendingSignupName = null;
+      _pendingSignupPhone = null;
+      _pendingSignupRole = null;
       _setLoading(false);
       return true;
     } catch (e) {
@@ -88,7 +92,7 @@ class AuthProvider extends ChangeNotifier {
           _pendingVerificationName = '';
         }
         _setError(
-          'Your email is not verified. Enter the OTP code sent to your inbox.',
+          'Your email is not verified. Check your inbox for the verification link.',
         );
       } else {
         _setError(rawError);
@@ -105,7 +109,7 @@ class AuthProvider extends ChangeNotifier {
     _clearError();
     _setLoading(true);
     try {
-      late final UserCredential userCredential;
+      UserCredential? userCredential;
 
       if (kIsWeb) {
         final googleProvider = GoogleAuthProvider()
@@ -118,42 +122,56 @@ class AuthProvider extends ChangeNotifier {
             .signInWithPopup(googleProvider)
             .timeout(const Duration(seconds: 15));
       } else {
-        final useAppleClientId =
-            defaultTargetPlatform == TargetPlatform.iOS ||
-            defaultTargetPlatform == TargetPlatform.macOS;
-        final googleSignIn = GoogleSignIn(
-          clientId: useAppleClientId ? GoogleSignInIds.iosClientId : null,
-          serverClientId: GoogleSignInIds.androidClientId,
-        );
-        if (forceAccountChooser) {
-          try {
-            await googleSignIn.disconnect();
-          } catch (_) {
-            await googleSignIn.signOut();
+        try {
+          final useAppleClientId =
+              defaultTargetPlatform == TargetPlatform.iOS ||
+                  defaultTargetPlatform == TargetPlatform.macOS;
+          final googleSignIn = GoogleSignIn(
+            clientId: useAppleClientId ? GoogleSignInIds.iosClientId : null,
+            serverClientId: GoogleSignInIds.webClientId,
+          );
+          if (forceAccountChooser) {
+            try {
+              await googleSignIn.disconnect();
+            } catch (_) {
+              await googleSignIn.signOut();
+            }
+          }
+          final GoogleSignInAccount? googleUser =
+              await googleSignIn.signIn().timeout(const Duration(seconds: 15));
+          if (googleUser == null) {
+            _setError('Google sign-in was canceled.');
+            return false;
+          }
+
+          final GoogleSignInAuthentication googleAuth =
+              await googleUser.authentication;
+          if ((googleAuth.idToken ?? '').isEmpty &&
+              (googleAuth.accessToken ?? '').isEmpty) {
+            _setError('Google sign-in was canceled.');
+            return false;
+          }
+
+          final credential = GoogleAuthProvider.credential(
+            accessToken: googleAuth.accessToken,
+            idToken: googleAuth.idToken,
+          );
+          userCredential = await FirebaseAuth.instance
+              .signInWithCredential(credential)
+              .timeout(const Duration(seconds: 15));
+        } on FirebaseAuthException catch (e) {
+          if (defaultTargetPlatform == TargetPlatform.android &&
+              _isGoogleConfigError(code: e.code, message: e.message)) {
+            userCredential = await _tryAndroidProviderFallback(
+              forceAccountChooser: forceAccountChooser,
+            );
+            if (userCredential == null) {
+              rethrow;
+            }
+          } else {
+            rethrow;
           }
         }
-        final GoogleSignInAccount? googleUser =
-            await googleSignIn.signIn().timeout(const Duration(seconds: 15));
-        if (googleUser == null) {
-          _setError('Google sign-in was canceled.');
-          return false;
-        }
-
-        final GoogleSignInAuthentication googleAuth =
-            await googleUser.authentication;
-        if ((googleAuth.idToken ?? '').isEmpty &&
-            (googleAuth.accessToken ?? '').isEmpty) {
-          _setError('Google sign-in was canceled.');
-          return false;
-        }
-
-        final credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
-        );
-        userCredential = await FirebaseAuth.instance
-            .signInWithCredential(credential)
-            .timeout(const Duration(seconds: 15));
       }
 
       final user = userCredential.user;
@@ -167,17 +185,23 @@ class AuthProvider extends ChangeNotifier {
           .get();
 
       if (!userDoc.exists) {
+        final normalizedEmail = (user.email ?? '').trim().toLowerCase();
+        if (normalizedEmail.isEmpty) {
+          throw Exception('Google account email is missing.');
+        }
+        final isRootAdmin =
+            normalizedEmail == AppConstants.superAdminEmail.toLowerCase();
         final newUser = UserModel(
           userId: user.uid,
-          email: user.email!,
+          email: normalizedEmail,
           name: user.displayName ?? 'User',
           phone: user.phoneNumber ?? '',
-          role: AppConstants.roleClient,
+          role: isRootAdmin ? AppConstants.roleAdmin : AppConstants.roleClient,
           roleStatus: AppConstants.roleStatusApproved,
           emailVerified: true,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
-          isRoot: false,
+          isRoot: isRootAdmin,
         );
 
         await FirebaseFirestore.instance
@@ -188,6 +212,35 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
       } else {
         _userModel = UserModel.fromFirestore(userDoc);
+        final normalizedEmail = (user.email ?? '').trim().toLowerCase();
+        final shouldPromoteRoot =
+            normalizedEmail == AppConstants.superAdminEmail.toLowerCase() &&
+                _userModel != null &&
+                (!_userModel!.isRoot ||
+                    _userModel!.role != AppConstants.roleAdmin ||
+                    !_userModel!.isApproved);
+        if (shouldPromoteRoot) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .set(
+            {
+              'role': AppConstants.roleAdmin,
+              'roleStatus': AppConstants.roleStatusApproved,
+              'isApproved': true,
+              'isRoot': true,
+              'emailVerified': true,
+              'updatedAt': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true),
+          );
+          _userModel = _userModel!.copyWith(
+            role: AppConstants.roleAdmin,
+            roleStatus: AppConstants.roleStatusApproved,
+            isRoot: true,
+            emailVerified: true,
+          );
+        }
         if (_userModel != null &&
             !_userModel!.emailVerified &&
             (user.emailVerified ||
@@ -211,19 +264,32 @@ class AuthProvider extends ChangeNotifier {
 
       return true;
     } on TimeoutException {
+      if (await _reconcileAuthenticatedUserAfterGoogleError()) {
+        return true;
+      }
       _setError('Google Sign-In timed out. Please try again.');
       return false;
     } on FirebaseAuthException catch (e) {
+      if (await _reconcileAuthenticatedUserAfterGoogleError()) {
+        return true;
+      }
       final code = e.code.toLowerCase();
       if (code == 'popup-closed-by-user' ||
           code == 'cancelled-popup-request' ||
           code == 'web-context-cancelled') {
         _setError('Google sign-in was canceled.');
+      } else if (_isGoogleConfigError(code: code, message: e.message)) {
+        _setError(
+          'Google sign-in config is incomplete for Android. Add SHA-1/SHA-256 for ${GoogleSignInIds.androidPackageName} in Firebase, then download a fresh google-services.json and rebuild.',
+        );
       } else {
         _setError('Google Sign-In failed: ${e.message ?? e.code}');
       }
       return false;
     } catch (e) {
+      if (await _reconcileAuthenticatedUserAfterGoogleError()) {
+        return true;
+      }
       final lower = e.toString().toLowerCase();
       if (lower.contains('sign_in_canceled') ||
           lower.contains('sign-in canceled') ||
@@ -233,6 +299,15 @@ class AuthProvider extends ChangeNotifier {
         _setError('Google sign-in was canceled.');
         return false;
       }
+      if (lower.contains('developer_error') ||
+          lower.contains('api exception: 10') ||
+          lower.contains('apiexception: 10') ||
+          lower.contains('status code: 10')) {
+        _setError(
+          'Google sign-in config is incomplete for Android. Add SHA-1/SHA-256 for ${GoogleSignInIds.androidPackageName} in Firebase, then download a fresh google-services.json and rebuild.',
+        );
+        return false;
+      }
       _setError('Google Sign-In failed: ${e.toString()}');
       return false;
     } finally {
@@ -240,8 +315,54 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> _reconcileAuthenticatedUserAfterGoogleError() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      return false;
+    }
+
+    try {
+      await _refreshCurrentUserDoc();
+    } catch (e) {
+      debugPrint('Google sign-in reconciliation warning: $e');
+    }
+
+    _errorMessage = null;
+    notifyListeners();
+    return true;
+  }
+
+  Future<UserCredential?> _tryAndroidProviderFallback({
+    required bool forceAccountChooser,
+  }) async {
+    try {
+      final provider = GoogleAuthProvider()
+        ..addScope('email')
+        ..addScope('profile');
+      if (forceAccountChooser) {
+        provider.setCustomParameters({'prompt': 'select_account'});
+      }
+      return await FirebaseAuth.instance
+          .signInWithProvider(provider)
+          .timeout(const Duration(seconds: 20));
+    } catch (e) {
+      debugPrint('Google provider fallback failed: $e');
+      return null;
+    }
+  }
+
+  bool _isGoogleConfigError({String? code, String? message}) {
+    final normalizedCode = (code ?? '').toLowerCase();
+    final normalizedMessage = (message ?? '').toLowerCase();
+    return normalizedCode == 'invalid-credential' ||
+        normalizedMessage.contains('developer_error') ||
+        normalizedMessage.contains('api exception: 10') ||
+        normalizedMessage.contains('apiexception: 10') ||
+        normalizedMessage.contains('status code: 10');
+  }
+
   /// 📝 REGISTER
-  Future<bool> register({
+  Future<RegistrationResult?> register({
     required String email,
     required String password,
     required String name,
@@ -251,19 +372,31 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(true);
     _clearError();
     try {
-      await _authService.register(
-        email: email,
-        password: password,
-        role: role,
-        name: name,
-        phone: phone,
+      final result = await _authService
+          .register(
+            email: email,
+            password: password,
+          )
+          .timeout(_registerTimeout);
+      _pendingVerificationEmail = email.trim().toLowerCase();
+      _pendingVerificationName = name.trim();
+      _pendingSignupName = name.trim();
+      _pendingSignupPhone = phone.trim();
+      _pendingSignupRole =
+          role.trim().isEmpty ? AppConstants.roleClient : role.trim();
+      return result;
+    } on TimeoutException {
+      // CRITICAL: Don't silently return success on timeout
+      // The account may or may not exist - either way, the signup is FAILED
+      _setError(
+        'Sign up took too long. Check your internet connection and try again. Your account may not have been created.',
       );
-      _setLoading(false);
-      return true;
+      return null;
     } catch (e) {
-      _setError(e.toString());
+      _setError(e);
+      return null;
+    } finally {
       _setLoading(false);
-      return false;
     }
   }
 
@@ -276,7 +409,7 @@ class AuthProvider extends ChangeNotifier {
       _setLoading(false);
       return true;
     } catch (e) {
-      _setError(e.toString());
+      _setError(e);
       _setLoading(false);
       return false;
     }
@@ -291,76 +424,106 @@ class AuthProvider extends ChangeNotifier {
       _setLoading(false);
       return true;
     } catch (e) {
-      _setError(e.toString());
+      _setError(e);
       _setLoading(false);
       return false;
     }
   }
 
-  /// 📧 SEND OTP TO EMAIL
-  Future<bool> sendOTPtoEmail({
-    required String email,
-    required String userName,
+  /// Reload Firebase user, then persist verified state to Firestore when needed.
+  Future<bool> refreshEmailVerificationState() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return false;
+    }
+
+    await user.reload();
+    final refreshed = FirebaseAuth.instance.currentUser;
+    if (refreshed == null || !refreshed.emailVerified) {
+      return false;
+    }
+
+    try {
+      await _setFirestoreEmailVerified(refreshed.uid);
+    } catch (error) {
+      debugPrint('Email verification persistence warning: $error');
+    }
+
+    try {
+      await _refreshCurrentUserDoc();
+    } catch (error) {
+      debugPrint('Email verification refresh warning: $error');
+      if (_userModel != null && !_userModel!.emailVerified) {
+        _userModel = _userModel!.copyWith(emailVerified: true);
+      }
+    }
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> completeEmailVerifiedSignup({
+    String? fallbackName,
+    String? fallbackPhone,
+    String? fallbackRole,
   }) async {
     _setLoading(true);
     _clearError();
     try {
-      final response = await _emailVerificationService.sendOTPtoEmailDetailed(
-        email: email,
-        userName: userName,
+      final currentUser = FirebaseAuth.instance.currentUser;
+      final resolvedName =
+          (fallbackName ?? _pendingSignupName ?? currentUser?.displayName ?? '')
+              .trim();
+      final resolvedPhone = (fallbackPhone ?? _pendingSignupPhone ?? '').trim();
+      final resolvedRole =
+          (fallbackRole ?? _pendingSignupRole ?? AppConstants.roleClient)
+              .trim();
+
+      await _authService.completeEmailVerifiedSignup(
+        name: resolvedName,
+        phone: resolvedPhone,
+        role: resolvedRole,
       );
-      _updateOtpMeta(response);
-      _setLoading(false);
+      await _refreshCurrentUserDoc();
+      _pendingSignupName = null;
+      _pendingSignupPhone = null;
+      _pendingSignupRole = null;
+      _errorMessage = null;
+      notifyListeners();
       return true;
     } catch (e) {
-      _setError(e.toString());
-      _setLoading(false);
+      _setError(e);
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  /// 🔐 VERIFY OTP
-  Future<bool> verifyOTP({
+  // Resend verification email for an existing account.
+  Future<bool> resendVerificationForExistingAccount({
     required String email,
-    required String otp,
+    required String password,
   }) async {
     _setLoading(true);
     _clearError();
     try {
-      await _emailVerificationService.verifyOTP(
-        email: email,
-        otp: otp,
-      );
-      _pendingVerificationEmail = null;
-      _pendingVerificationName = null;
-      _setLoading(false);
+      await _authService
+          .resendVerificationForExistingAccount(
+            email: email,
+            password: password,
+          )
+          .timeout(_registerTimeout);
+      _pendingVerificationEmail = email.trim().toLowerCase();
       return true;
-    } catch (e) {
-      _setError(e.toString());
-      _setLoading(false);
-      return false;
-    }
-  }
-
-  /// 📧 RESEND OTP
-  Future<bool> resendOTP({
-    required String email,
-    required String userName,
-  }) async {
-    _setLoading(true);
-    _clearError();
-    try {
-      final response = await _emailVerificationService.resendOTPDetailed(
-        email: email,
-        userName: userName,
+    } on TimeoutException {
+      _setError(
+        'Resending verification email is taking too long. Please retry.',
       );
-      _updateOtpMeta(response);
-      _setLoading(false);
-      return true;
-    } catch (e) {
-      _setError(e.toString());
-      _setLoading(false);
       return false;
+    } catch (e) {
+      _setError(e);
+      return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
@@ -377,12 +540,20 @@ class AuthProvider extends ChangeNotifier {
 
   /// 🚪 LOGOUT
   Future<void> signOut() async {
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {
+      // Continue Firebase sign-out even if local Google SDK cleanup fails.
+    }
     await _authService.logout();
     await _userDocSubscription?.cancel();
     _userDocSubscription = null;
     _userModel = null;
     _pendingVerificationEmail = null;
     _pendingVerificationName = null;
+    _pendingSignupName = null;
+    _pendingSignupPhone = null;
+    _pendingSignupRole = null;
     notifyListeners();
   }
 
@@ -390,7 +561,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async => await signOut();
 
   /// 🔄 UPDATE PROFILE
-  Future<void> updateProfile(UserModel updatedUser) async {
+  Future<bool> updateProfile(UserModel updatedUser) async {
     final previous = _userModel;
     final optimistic = updatedUser.copyWith(updatedAt: DateTime.now());
     _userModel = optimistic;
@@ -398,10 +569,14 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await _authService.updateProfile(optimistic);
+      _errorMessage = null;
+      notifyListeners();
+      return true;
     } catch (e) {
       _userModel = previous;
-      _setError(e.toString());
+      _setError(e);
       notifyListeners();
+      return false;
     }
   }
 
@@ -410,8 +585,11 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _setError(String msg) {
-    _errorMessage = AppFeedback.friendlyError(msg);
+  void _setError(Object error, {String? fallbackMessage}) {
+    _errorMessage = AppFeedback.friendlyError(
+      error,
+      fallbackMessage: fallbackMessage,
+    );
     notifyListeners();
   }
 
@@ -426,20 +604,6 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> logVerificationEvent({
-    required String eventName,
-    required String email,
-    Map<String, dynamic>? meta,
-  }) async {
-    try {
-      await _emailVerificationService.logClientEvent(
-        eventName: eventName,
-        email: email,
-        meta: meta,
-      );
-    } catch (_) {}
-  }
-
   Future<void> prepareGoogleAccountSwitch() async {
     try {
       await GoogleSignIn().signOut();
@@ -447,13 +611,6 @@ class AuthProvider extends ChangeNotifier {
       // Ignore Google SDK cleanup issues and continue to Firebase sign-out.
     }
     await FirebaseAuth.instance.signOut();
-  }
-
-  void _updateOtpMeta(Map<String, dynamic> response) {
-    _otpCooldownSeconds = (response['cooldownSeconds'] as num?)?.toInt() ?? 30;
-    _otpRemainingResends = (response['remainingResends'] as num?)?.toInt() ?? 0;
-    _otpResendCapReached = response['resendCapReached'] == true;
-    notifyListeners();
   }
 
   Future<void> _handleAuthStateChanged(User? user) async {
@@ -464,6 +621,9 @@ class AuthProvider extends ChangeNotifier {
       _userModel = null;
       _pendingVerificationEmail = null;
       _pendingVerificationName = null;
+      _pendingSignupName = null;
+      _pendingSignupPhone = null;
+      _pendingSignupRole = null;
       notifyListeners();
       return;
     }
@@ -482,6 +642,13 @@ class AuthProvider extends ChangeNotifier {
         final loaded = UserModel.fromFirestore(doc);
         final firebaseVerified =
             FirebaseAuth.instance.currentUser?.emailVerified ?? false;
+        if (firebaseVerified && !loaded.emailVerified) {
+          unawaited(
+            _setFirestoreEmailVerified(user.uid).catchError(
+              (error) => debugPrint('Email verification sync warning: $error'),
+            ),
+          );
+        }
         _userModel = loaded.copyWith(
           emailVerified: loaded.emailVerified || firebaseVerified,
         );
@@ -512,8 +679,28 @@ class AuthProvider extends ChangeNotifier {
     final loaded = UserModel.fromFirestore(userDoc);
     final firebaseVerified =
         FirebaseAuth.instance.currentUser?.emailVerified ?? false;
+    if (firebaseVerified && !loaded.emailVerified) {
+      try {
+        await _setFirestoreEmailVerified(uid);
+      } catch (error) {
+        debugPrint('Email verification sync warning: $error');
+      }
+    }
     _userModel = loaded.copyWith(
       emailVerified: loaded.emailVerified || firebaseVerified,
+    );
+  }
+
+  Future<void> _setFirestoreEmailVerified(String uid) async {
+    await FirebaseFirestore.instance
+        .collection(AppConstants.usersCollection)
+        .doc(uid)
+        .set(
+      {
+        'emailVerified': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
     );
   }
 

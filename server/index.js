@@ -53,6 +53,9 @@ const EMAIL_CONFIG = {
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
     from: process.env.MAIL_FROM || process.env.SMTP_USER || '',
+    connectionTimeoutMs: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 8000),
+    greetingTimeoutMs: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 8000),
+    socketTimeoutMs: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 10000),
 };
 
 // --- HELPERS ---
@@ -131,11 +134,38 @@ const mailTransporter = () => {
         host: EMAIL_CONFIG.host,
         port: EMAIL_CONFIG.port,
         secure: EMAIL_CONFIG.secure,
+        connectionTimeout: EMAIL_CONFIG.connectionTimeoutMs,
+        greetingTimeout: EMAIL_CONFIG.greetingTimeoutMs,
+        socketTimeout: EMAIL_CONFIG.socketTimeoutMs,
         auth: {
             user: EMAIL_CONFIG.user,
             pass: EMAIL_CONFIG.pass,
         },
     });
+};
+
+const mapOtpSendError = (error) => {
+    const raw = String(error?.message || '').trim();
+    const lower = raw.toLowerCase();
+
+    if (lower.includes('email service is not configured') || lower.includes('nodemailer dependency is missing')) {
+        return {
+            status: 503,
+            message: 'OTP email is not configured on the server. Set SMTP_HOST, SMTP_USER, SMTP_PASS, and MAIL_FROM, then restart the backend.',
+        };
+    }
+
+    if (lower.includes('timed out') || lower.includes('etimedout') || lower.includes('econnrefused') || lower.includes('enotfound')) {
+        return {
+            status: 504,
+            message: 'OTP email provider timed out. Check SMTP settings and try again.',
+        };
+    }
+
+    return {
+        status: 500,
+        message: 'Failed to send verification code. Please try again.',
+    };
 };
 
 const sendOtpEmail = async ({ email, userName, otp }) => {
@@ -248,9 +278,10 @@ app.post('/auth/send-otp', async (req, res) => {
     } catch (error) {
         console.error('send-otp error:', error.message);
         await logOtpEvent('send_otp_error', email, { message: error.message });
-        return res.status(500).json({
+        const mapped = mapOtpSendError(error);
+        return res.status(mapped.status).json({
             success: false,
-            message: 'Failed to send verification code. Please try again.',
+            message: mapped.message,
         });
     }
 });
